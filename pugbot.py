@@ -10,6 +10,7 @@ from random import choice
 import asyncio
 import config
 import discord
+import pymongo
 import requests
 import time
 import valve.rcon
@@ -20,6 +21,7 @@ adminRoleMention = config.adminRoleMention
 blueteamChannelID = config.blueteamChannelID
 cmdprefix = config.cmdprefix
 discordServerID = config.discordServerID
+dbtoken = config.dbtoken
 maps = config.maps
 mapprefix = config.mapprefix
 playerRoleID = config.playerRoleID
@@ -41,6 +43,10 @@ token = config.token
 # Begin by creating the client and server object
 client = discord.Client()
 server = client.get_server(id=discordServerID)
+
+# create the MongoDB client and connect to the database
+dbclient = pymongo.MongoClient(dbtoken)
+db = dbclient.FortressForever
 
 # Globals 
 chosenMap = []
@@ -67,19 +73,6 @@ ONE_MINUTE_IN_SECONDS = 60
 rcon = valve.rcon.RCON(server_address, rconPW)
 rcon.connect()
 rcon.authenticate()
-
-# get the old pickup information, if it exists
-try: 
-	with open('lastgameinfo') as infile:
-		lastRedTeam = infile.readline().split(",")
-		lastBlueTeam = infile.readline().split(",")
-		lastMap = infile.readline()
-		lasttime = float(infile.readline())
-except IOError as error:
-	lastRedTeam = []
-	lastBlueTeam = []
-	lastMap = []
-	lasttime = time.time()
 	
 # run through the all the players in the pool and verify they are ready
 async def check_for_afk_players(msg, players, readyupChannelID):
@@ -353,7 +346,7 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 		if(len(votetotals) > 0):
 			# tally up the votes
 			for k,v in votelist.items():
-				print(str(k) + " : " + str(v))
+				# print(str(k) + " : " + str(v))
 				votetotals[v-1] += 1 
 				
 			# find the max number and it's position
@@ -468,12 +461,12 @@ async def save_last_game_info(blueTeam, redTeam, lastBlueTeam, lastRedTeam, last
 		lastBlueTeam.append(p.name)
 	lasttime = time.time()
 	
-	# save this data to a file so we can access it later
-	with open('lastgameinfo', 'w') as outfile:
-		outfile.write(",".join(map(str, lastRedTeam)) + "\n")
-		outfile.write(",".join(map(str, lastBlueTeam)) + "\n")
-		outfile.write(str(lastmap) + "\n")
-		outfile.write(str(lasttime))
+	# modify the MongoDB document to contain the most recent pickup information
+	updated = db.pickups.update_one({'last':True}, 
+									{'$set': {'blueteam':lastBlueTeam,
+									'redteam':lastRedTeam, 
+									'map':lastmap, 
+									'time':lasttime}})
 		
 ### Send a rich embeded messages instead of a plain ones
 ### to an entire channel
@@ -674,14 +667,20 @@ async def on_message(msg):
 		
 	# Last - Displays information about the last pickup that was played
 	if(msg.content.startswith(cmdprefix + "last")):
-		# we have to send these as multiple embed messages
-		# if we try to send more than 2000 characters discord raises a 400 request error
-		
+		# get the last pickup information from the MongoDB
+		found = db.pickups.find_one({'last':True})
+		lastBlueTeam = found.get('blueteam')
+		lastRedTeam = found.get('redteam')
+		lastMap = found.get('map')
+		lasttime = found.get('time')
+	
 		# set up the timedelta
 		elapsedtime = time.time() - lasttime
 		td = timedelta(seconds=elapsedtime)
 		td = td - timedelta(microseconds=td.microseconds)
-		# get the last map that was played on
+		
+		# we have to send these as multiple embed messages
+		# if we try to send more than 2000 characters discord raises a 400 request error
 		emb = (discord.Embed(title="Last Pickup was " + str(td) + " ago on " + lastMap, colour=0x00ff00))
 		emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
 		await client.send_message(msg.channel, embed=emb )
