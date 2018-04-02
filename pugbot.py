@@ -68,6 +68,7 @@ voteForMaps = True
 THREE_MINUTES_IN_SECONDS = 180
 TWO_MINUTES_IN_SECONDS = 120
 ONE_MINUTE_IN_SECONDS = 60
+FORTY_FIVE_SECONDS = 60
 
 # Setup an RCON connection 
 rcon = valve.rcon.RCON(server_address, rconPW)
@@ -185,8 +186,9 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 			redTeam.append(players[i])
 			blueTeam.append(players[i+sizeOfTeams])
 	else:
-		redTeam = [caps[0]]
-		blueTeam = [caps[1]]
+		blueTeam = [caps[0]]
+		redTeam = [caps[1]]
+		
 		try:
 			players.remove(caps[0])
 		except IndexError as error:
@@ -323,12 +325,13 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 		countdown = time.time()
 		elapsedtime = time.time() - countdown
 		td = timedelta(seconds=elapsedtime)
+		counter = 0
 		position = 0
 		topvote = -1
 		duplicateFnd = False
 		role = discord.utils.get(msg.server.roles, id=poolRoleID)
-		await send_emb_message_to_channel(0x00ff00, "Map voting has started\n\n" + role.mention + " you have " + str(ONE_MINUTE_IN_SECONDS) + " seconds to vote for a map\n\nreply with a number between 1 and " + str(sizeOfMapPool) + " to cast your vote", msg)
-		while(td.total_seconds() < ONE_MINUTE_IN_SECONDS):
+		await send_emb_message_to_channel(0x00ff00, "Map voting has started\n\n" + role.mention + " you have " + str(FORTY_FIVE_SECONDS) + " seconds to vote for a map\n\nreply with a number between 1 and " + str(sizeOfMapPool) + " to cast your vote", msg)
+		while(td.total_seconds() < FORTY_FIVE_SECONDS):
 			async def gatherVotes(msg):						
 				# check function for advance filtering
 				def check(msg):
@@ -344,6 +347,24 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 			await gatherVotes(msg)
 			elapsedtime = time.time() - countdown
 			td = timedelta(seconds=elapsedtime)
+			# message everyone the maps votes on every even iteration
+			if((counter % 2) == 1):
+				keys = []
+				values = []
+				tmpstr = ''
+				for k,v in mapPicks.items():
+					keys.append(v)
+				# gather the votes
+				for k,v in votelist.items():
+					values.append(v)
+				totals = dict(zip(keys, values))
+				for k,v in totals.items():
+					tmpstr = tmpstr + str(k) + " : " + str(v) + "\n"
+				# set up the timedelta
+				td0 = td - timedelta(microseconds=td.microseconds)
+				await send_emb_message_to_channel(0xff0000, tmpstr + "\n\n" + str(60 - td0.total_seconds()) + " seconds remaining", msg)
+			counter += 1
+			
 			
 		# vote time has expired
 		await send_emb_message_to_channel(0xff0000, "Map voting has finished", msg)
@@ -352,7 +373,6 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 		if(len(votetotals) > 0):
 			# tally up the votes
 			for k,v in votelist.items():
-				# print(str(k) + " : " + str(v))
 				votetotals[v-1] += 1 
 				
 			# find the max number and it's position
@@ -392,12 +412,12 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 # BLUE TEAM PICKS
 async def blue_team_picks(blueTeam, redTeam, caps, players, msg):
 	plyrStr = '\n'.join([p.mention for p in players])
-	await send_emb_message_to_channel(0x00ff00, caps[1].mention + " type @player to pick. Available players are:\n\n" + plyrStr, msg)
+	await send_emb_message_to_channel(0x00ff00, caps[0].mention + " type @player to pick. Available players are:\n\n" + plyrStr, msg)
 
 	# check for a pick and catch it if they don't mention an available player
 	while True:
 		try:
-			inputobj = await client.wait_for_message(author=msg.server.get_member(caps[1].id))
+			inputobj = await client.wait_for_message(author=msg.server.get_member(caps[0].id))
 			picked = inputobj.mentions[0]
 		except(IndexError):
 			continue
@@ -419,12 +439,12 @@ async def blue_team_picks(blueTeam, redTeam, caps, players, msg):
 # RED TEAM PICKS
 async def red_team_picks(blueTeam, redTeam, caps, players, msg):
 	plyrStr = '\n'.join([p.mention for p in players])
-	await send_emb_message_to_channel(0x00ff00, caps[0].mention + " type @player to pick. Available players are:\n\n" + plyrStr, msg)
+	await send_emb_message_to_channel(0x00ff00, caps[1].mention + " type @player to pick. Available players are:\n\n" + plyrStr, msg)
 
 	# check for a pick and catch it if they don't mention an available player
 	while True:
 		try:
-			inputobj = await client.wait_for_message(author=msg.server.get_member(caps[0].id))
+			inputobj = await client.wait_for_message(author=msg.server.get_member(caps[1].id))
 			picked = inputobj.mentions[0]
 		except(IndexError):
 			continue
@@ -784,7 +804,6 @@ async def on_message(msg):
 							# TODO (1): this check is not working correctly
 							for mp in mapPicks:
 								if(atom == str(mp)):
-									print("hi")
 									await send_emb_message_to_channel(0xff0000, msg.author.mention + " that map has already been nominated. Please make another selection", msg)
 									return # break out if duplicate nomination
 									
