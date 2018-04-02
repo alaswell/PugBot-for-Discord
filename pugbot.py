@@ -8,7 +8,7 @@ from datetime import timedelta
 from random import shuffle
 from random import choice
 import asyncio
-import config
+import config_test as config
 import discord
 import pymongo
 import requests
@@ -22,6 +22,7 @@ blueteamChannelID = config.blueteamChannelID
 cmdprefix = config.cmdprefix
 discordServerID = config.discordServerID
 dbtoken = config.dbtoken
+durationOfMapVote = config.durationOfMapVote
 maps = config.maps
 mapprefix = config.mapprefix
 playerRoleID = config.playerRoleID
@@ -46,7 +47,7 @@ server = client.get_server(id=discordServerID)
 
 # create the MongoDB client and connect to the database
 dbclient = pymongo.MongoClient(dbtoken)
-db = dbclient.FortressForever
+db = dbclient.Test
 
 # Globals 
 chosenMap = []
@@ -68,7 +69,9 @@ voteForMaps = True
 THREE_MINUTES_IN_SECONDS = 180
 TWO_MINUTES_IN_SECONDS = 120
 ONE_MINUTE_IN_SECONDS = 60
-FORTY_FIVE_SECONDS = 60
+FORTY_FIVE_SECONDS = 45
+FIFTEEN_SECONDS = 15
+FIVE_SECONDS = 5
 
 # Setup an RCON connection 
 rcon = valve.rcon.RCON(server_address, rconPW)
@@ -104,7 +107,28 @@ async def check_for_map_nominations(mapPicks, msg, sizeOfMapPool):
 			# wait until someone nominates another map
 			await client.wait_for_message(check=check)
 		await needMapPicks(msg)
-			
+
+async def count_votes_message_channel(tdelta, keys, msg, votelist, votetotals):
+	values = []
+	totals = {}
+	tmpstr = ''
+	# reset totals
+	votetotals = []
+	[votetotals.append(0) for x in range(sizeOfMapPool)]
+	# tally the buckets
+	for k,v in votelist.items():
+		votetotals[v-1] += 1
+	# move tallies to values for zip
+	for v in votetotals:
+		values.append(v)
+	# zip with keys to make a nice dict
+	totals = dict(zip(keys, values))
+	for x,y in totals.items():
+		tmpstr = tmpstr + str(x) + " : " + str(y) + "\n"
+	# set up the remaining time to vote timedelta
+	tdelta0 = tdelta - timedelta(microseconds=tdelta.microseconds)
+	await send_emb_message_to_channel(0x00ff00, tmpstr + "\n" + str(durationOfMapVote - tdelta0.total_seconds()) + " seconds remaining", msg)
+					
 async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pickupRunning, players, poolRoleID, readyupChannelID, voteForMaps):
 	afk_players = []
 	counter = 0
@@ -222,7 +246,7 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 		rcon.execute('changelevel ' + chosenMap)
 	except Exception:
 		pass
-		
+	
 	# move the players to their respective voice channels
 	for p in redTeam:
 		try:
@@ -318,7 +342,9 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 # vote for maps or random
 	if(voteForMaps):
 		votelist = {}
-		# initialize 
+		keys = []
+		for k,v in mapPicks.items():
+			keys.append(v)
 		votetotals = []
 		[votetotals.append(0) for x in range(sizeOfMapPool)]
 		positions = []
@@ -330,8 +356,8 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 		topvote = -1
 		duplicateFnd = False
 		role = discord.utils.get(msg.server.roles, id=poolRoleID)
-		await send_emb_message_to_channel(0x00ff00, "Map voting has started\n\n" + role.mention + " you have " + str(FORTY_FIVE_SECONDS) + " seconds to vote for a map\n\nreply with a number between 1 and " + str(sizeOfMapPool) + " to cast your vote", msg)
-		while(td.total_seconds() < FORTY_FIVE_SECONDS):
+		await send_emb_message_to_channel(0x00ff00, "Map voting has started\n\n" + role.mention + " you have " + str(durationOfMapVote) + " seconds to vote for a map\n\nreply with a number between 1 and " + str(sizeOfMapPool) + " to cast your vote", msg)
+		while(td.total_seconds() < durationOfMapVote):
 			async def gatherVotes(msg):						
 				# check function for advance filtering
 				def check(msg):
@@ -342,34 +368,22 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 							if(msg.content == str(x)):
 								votelist.update({msg.author.name:x})
 						return True
-				# listen for votes, wait no more than 60 seconds
-				await client.wait_for_message(timeout=60, check=check)
+				# listen for votes, wait no more than 5 seconds between messages
+				# this forces the counter to increment more often (read: more messages to the channel)
+				await client.wait_for_message(timeout=FIVE_SECONDS, check=check)
 			await gatherVotes(msg)
 			elapsedtime = time.time() - countdown
 			td = timedelta(seconds=elapsedtime)
 			# message everyone the maps votes on every even iteration
-			if((counter % 2) == 1):
-				keys = []
-				values = []
-				tmpstr = ''
-				for k,v in mapPicks.items():
-					keys.append(v)
-				# gather the votes
-				for k,v in votelist.items():
-					values.append(v)
-				totals = dict(zip(keys, values))
-				for k,v in totals.items():
-					tmpstr = tmpstr + str(k) + " : " + str(v) + "\n"
-				# set up the timedelta
-				td0 = td - timedelta(microseconds=td.microseconds)
-				await send_emb_message_to_channel(0xff0000, tmpstr + "\n\n" + str(60 - td0.total_seconds()) + " seconds remaining", msg)
+			if((counter % 2) == 1 and (td.total_seconds() < durationOfMapVote)):
+				await count_votes_message_channel(td, keys, msg, votelist, votetotals)
 			counter += 1
 			
 			
 		# vote time has expired
 		await send_emb_message_to_channel(0xff0000, "Map voting has finished", msg)
 		
-		# if users voted
+		# if users have voted
 		if(len(votetotals) > 0):
 			# tally up the votes
 			for k,v in votelist.items():
@@ -428,7 +442,7 @@ async def blue_team_picks(blueTeam, redTeam, caps, players, msg):
 		if(picked not in redTeam and picked not in blueTeam):
 			blueTeam.append(picked)
 			players.remove(picked)
-			await send_emb_message_to_channel(0x0000ff, picked.mention + " has been added to the Blue Team", msg)
+			await send_emb_message_to_channel_blue(picked.mention + " has been added to the team", msg)
 		else:
 			await send_emb_message_to_channel(0xff0000, picked.mention + " is already on a team", msg)
 			await blue_team_picks(blueTeam, redTeam, caps, players, msg)
@@ -455,8 +469,7 @@ async def red_team_picks(blueTeam, redTeam, caps, players, msg):
 		if(picked not in redTeam and picked not in blueTeam):
 			redTeam.append(picked)
 			players.remove(picked)
-			# TODO (2): make this a distinct function that includes the team logos
-			await send_emb_message_to_channel(0xff0000, picked.mention + " has been added to the Red Team", msg)
+			await send_emb_message_to_channel_red(picked.mention + " has been added to the team", msg)
 		else:
 			await send_emb_message_to_channel(0xff0000, picked.mention + " is already on a team", msg)
 			await red_team_picks(blueTeam, redTeam, caps, players, msg)
@@ -494,15 +507,29 @@ async def save_last_game_info(blueTeam, redTeam, lastBlueTeam, lastRedTeam, last
 									'map':lastmap, 
 									'time':lasttime}})
 		
-### Send a rich embeded messages instead of a plain ones
-### to an entire channel
+# Send a rich embeded messages instead of a plain ones
+# to an entire channel
 async def send_emb_message_to_channel(colour, embstr, message):
 	emb = (discord.Embed(description=embstr, colour=colour))
 	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
 	await client.send_message(message.channel, embed=emb )
+
+# Send a rich embeded messages instead of a plain ones
+# to an entire channel - Blue Team Logo
+async def send_emb_message_to_channel_blue(embstr, message):
+	emb = (discord.Embed(description=embstr, colour=0x0000ff))
+	emb.set_author(name='Blue Team', icon_url='http://www.lexicondesigns.com/images/other/ff_logo_blue.png')
+	await client.send_message(message.channel, embed=emb )
 	
-### Send a rich embeded messages instead of a plain ones
-### to an individual user 	
+# Send a rich embeded messages instead of a plain ones
+# to an entire channel - Red Team Logo
+async def send_emb_message_to_channel_red(embstr, message):
+	emb = (discord.Embed(description=embstr, colour=0xff0000))
+	emb.set_author(name='Red Team', icon_url='http://www.lexicondesigns.com/images/other/ff_logo_red.png')
+	await client.send_message(message.channel, embed=emb )
+	
+# Send a rich embeded messages instead of a plain ones
+# to an individual user 	
 async def send_emb_message_to_user(colour, embstr, message):
 	emb = (discord.Embed(description=embstr, colour=colour))
 	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
@@ -748,12 +775,8 @@ async def on_message(msg):
 		emb = (discord.Embed(title="Last Pickup was " + str(td) + " ago on " + lastMap, colour=0x00ff00))
 		emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
 		await client.send_message(msg.channel, embed=emb )
-		emb1 = (discord.Embed(title="Red Team:\n" + "\n".join(map(str, lastRedTeam)), colour=0xff0000))
-		emb1.set_author(name=client.user.name, icon_url=client.user.avatar_url)
-		await client.send_message(msg.channel, embed=emb1 )
-		emb2 = (discord.Embed(title="Blue Team:\n" + "\n".join(map(str, lastBlueTeam)), colour=0x0000ff))
-		emb2.set_author(name=client.user.name, icon_url=client.user.avatar_url)
-		await client.send_message(msg.channel, embed=emb2 )
+		await send_emb_message_to_channel_blue("\n".join(map(str, lastBlueTeam)), msg)
+		await send_emb_message_to_channel_red("\n".join(map(str, lastRedTeam)), msg)
 				
 	# Map (but not maps or maplist) - Show the chosen map for the current pickup
 	if (msg.content.startswith(cmdprefix + "map") and not msg.content.startswith(cmdprefix + "maps") and not msg.content.startswith(cmdprefix + "maplist")):

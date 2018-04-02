@@ -8,6 +8,9 @@ cmdprefix = '!'
 # Bot User Token (this should be secret)
 token = 'PLACE TOKEN HERE'
 
+# Default times 
+durationOfMapVote = 45					# duration in seconds the users have to vote on maps 
+
 # Default sizes
 sizeOfTeams = 4						    # number of players per team
 sizeOfGame = 8						    # sizeOfTeams * 2
