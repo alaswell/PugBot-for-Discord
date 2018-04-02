@@ -114,6 +114,10 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	role = discord.utils.get(msg.server.roles, id=poolRoleID)
 	
 	await send_emb_message_to_channel(0x00ff00, "The pickup is starting!!\n\n" + role.mention + " join the " + ready_channel.name + " to signify you are present and ready", msg)
+	
+	# set up the embeded message incase we need to message players 
+	emb = (discord.Embed(title="The pickup is starting!!\n\nJoin the " + ready_channel.name + " to signify you are present and ready", colour=0xff0000))
+	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
 	# give the players up to two (2) minutes to ready-up
 	while(td.total_seconds() < TWO_MINUTES_IN_SECONDS):
 		# only check every 5 seconds
@@ -124,9 +128,11 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 			afkstr = '\n'.join([p.mention for p in afk_players])			
 			elapsedtime = time.time() - countdown
 			td = timedelta(seconds=elapsedtime)
-			# only message the channel every third iteration
+			# only message everyone on every third iteration
 			if((counter % 3) == 0):
 				await send_emb_message_to_channel(0xff0000, "Missing players:\n\n" + afkstr, msg)
+				for p in afk_players:
+					await client.send_message(p, embed=emb )	
 			counter += 1
 		else:
 			# all players in list are idle in channel and ready
