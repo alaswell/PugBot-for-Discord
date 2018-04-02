@@ -822,7 +822,7 @@ async def on_message(msg):
 				else:
 					message = msg.content.split()
 					if(len(message) == 1):
-						await send_emb_message_to_user(0xff0000, "You must provide a new size " + cmdprefix + "setplayers <numberOfPlayers>", msg)
+						await send_emb_message_to_user(0xff0000, "You must provide a new size " + cmdprefix + "players <numberOfPlayers>", msg)
 					else:
 						# make sure the msg.author is giving an integer value
 						while True:
