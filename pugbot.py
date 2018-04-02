@@ -650,7 +650,7 @@ async def on_message(msg):
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
 
 	# Changelevel - Change the map in the server using the RCON commange changelevel
-	if (msg.content.startswith(cmdprefix + "changelevel ")):
+	if (msg.content.startswith(cmdprefix + "changelevel ") or msg.content.startswith(cmdprefix + "changemap ")):
 		# admin command
 		if (await user_has_access(msg.author)):
 			message = msg.content.split()
