@@ -10,7 +10,7 @@ token = 'PLACE TOKEN HERE'
 
 # Default times 
 durationOfMapVote = 45					# duration in seconds the users have to vote on maps 
-durationOfReadyUp = 180		# duration in seconds the users have to move to the channel and "ready-up"
+durationOfReadyUp = 180					# duration in seconds the users have to move to the channel and "ready-up"
 
 # Default sizes
 sizeOfTeams = 4						    # number of players per team
