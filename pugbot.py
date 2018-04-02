@@ -8,7 +8,7 @@ from datetime import timedelta
 from random import shuffle
 from random import choice
 import asyncio
-import config
+import config_test as config
 import discord
 import pymongo
 import requests
@@ -549,6 +549,16 @@ async def on_message(msg):
 				try:
 					await client.add_roles(msg.author, role)
 					await send_emb_message_to_user(0x00ff00, "Successfully added role {0}".format(role.name), msg)					
+				except (discord.Forbidden, discord.HTTPException):
+					continue
+				break
+		
+		if(msg.content.startswith(cmdprefix + "unsubscribe")):
+			role = discord.utils.get(msg.server.roles, id=playerRoleID)
+			while True:
+				try:
+					await client.remove_roles(msg.author, role)
+					await send_emb_message_to_user(0x00ff00, "Successfully removed role {0}".format(role.name), msg)					
 				except (discord.Forbidden, discord.HTTPException):
 					continue
 				break
