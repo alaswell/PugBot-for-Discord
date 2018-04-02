@@ -8,7 +8,7 @@ from datetime import timedelta
 from random import shuffle
 from random import choice
 import asyncio
-import config
+import config_test as config
 import discord
 import pymongo
 import requests
@@ -590,6 +590,33 @@ async def on_message(msg):
 					voteForMaps = True
 		else:
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
+
+	# Changelevel - Change the map in the server using the RCON commange changelevel
+	if (msg.content.startswith(cmdprefix + "changelevel ")):
+		# admin command
+		if (await user_has_access(msg.author)):
+			message = msg.content.split()
+			# make sure the user provided a map
+			if(len(message) > 1):
+				# check to see if the provided map is an alias
+				atom = await mapname_is_alias(msg, message[1])
+				if(atom == "TOOSHORT"): return
+				elif(atom == "INVALID"): atom = message[1]
+				# only try to change to valid maps
+				if(atom in maps):
+					# change the map in the server to the provided map
+					try:
+						rcon.execute('changelevel ' + atom)
+					except Exception:
+						pass
+					await send_emb_message_to_channel(0xff0000, msg.author.mention + " the map has been changed to " + atom, msg)						
+				else:
+					await send_emb_message_to_channel(0xff0000, msg.author.mention + " that map is not in my !maplist. Please make another selection", msg)
+					await send_emb_message_to_user(0x00ff00, "Currently, you may nominate any of the following maps:\n" + "\n".join(map(str, maps)), msg)
+			else:
+				await send_emb_message_to_user(0xff0000, msg.author.mention + " you must provide a mapname. " + cmdprefix + "changemap <mapname>", msg)
+		else:
+			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
 			
 	# Commands - Prints the commands menu
 	if(msg.content.startswith(cmdprefix + "commands")):
