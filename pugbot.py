@@ -8,7 +8,7 @@ from datetime import timedelta
 from random import shuffle
 from random import choice
 import asyncio
-import config_test as config
+import config
 import discord
 import pymongo
 import requests
@@ -23,6 +23,7 @@ cmdprefix = config.cmdprefix
 discordServerID = config.discordServerID
 dbtoken = config.dbtoken
 durationOfMapVote = config.durationOfMapVote
+durationOfReadyUp = config.durationOfReadyUp
 maps = config.maps
 mapprefix = config.mapprefix
 playerRoleID = config.playerRoleID
@@ -47,7 +48,7 @@ server = client.get_server(id=discordServerID)
 
 # create the MongoDB client and connect to the database
 dbclient = pymongo.MongoClient(dbtoken)
-db = dbclient.Test
+db = dbclient.FortressForever
 
 # Globals 
 chosenMap = []
@@ -66,11 +67,6 @@ selectionMode = False
 voteForMaps = True
 		
 # Constants 
-THREE_MINUTES_IN_SECONDS = 180
-TWO_MINUTES_IN_SECONDS = 120
-ONE_MINUTE_IN_SECONDS = 60
-FORTY_FIVE_SECONDS = 45
-FIFTEEN_SECONDS = 15
 FIVE_SECONDS = 5
 
 # Setup an RCON connection 
@@ -143,8 +139,8 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	# set up the embeded message incase we need to message players 
 	emb = (discord.Embed(title="The pickup is starting!!\n\nJoin the " + ready_channel.name + " to signify you are present and ready", colour=0xff0000))
 	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
-	# give the players up to two (2) minutes to ready-up
-	while(td.total_seconds() < TWO_MINUTES_IN_SECONDS):
+	# give the players time to ready-up
+	while(td.total_seconds() < durationOfReadyUp):
 		# only check every 5 seconds
 		await asyncio.sleep(5)
 		# loop through the channel and check to see if everyone has joined it or not
@@ -600,7 +596,7 @@ async def on_message(msg):
 					continue
 				break
 		
-		if(msg.content.startswith(cmdprefix + "unsubscribe")):
+		if(msg.content.startswith(cmdprefix + "unsubscribe") or msg.content.startswith(cmdprefix + "unpug")):
 			role = discord.utils.get(msg.server.roles, id=playerRoleID)
 			while True:
 				try:
@@ -1031,7 +1027,18 @@ async def on_message(msg):
 				await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
 		else:
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)			
-	
+			
+	# Unsubscribe - Allows users to leave the notification group with removes them from the channel
+	if(msg.content.startswith(cmdprefix + "unsubscribe") or msg.content.startswith(cmdprefix + "unpug")):
+			role = discord.utils.get(msg.server.roles, id=playerRoleID)
+			while True:
+				try:
+					await client.remove_roles(msg.author, role)
+					await send_emb_message_to_user(0x00ff00, "Successfully removed role {0}".format(role.name), msg)					
+				except (discord.Forbidden, discord.HTTPException):
+					continue
+				break
+				
 # Run the bot
 client.run(token)
 		
