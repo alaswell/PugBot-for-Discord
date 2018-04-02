@@ -8,7 +8,7 @@ from datetime import timedelta
 from random import shuffle
 from random import choice
 import asyncio
-import config_test as config
+import config
 import discord
 import pymongo
 import requests
@@ -641,6 +641,7 @@ async def on_message(msg):
 		if (await user_has_access(msg.author)):
 			emb = (discord.Embed(title="Admin Commands:", description="These commands are accessible only by the game admins", colour=0x00AE86))
 			emb.set_author(name=client.user.name, icon_url=client.user.default_avatar_url)
+			emb.add_field(name=cmdprefix + 'changelevel <mapname>', value='Changes the map in the server via RCON', inline=False)
 			emb.add_field(name=cmdprefix + 'end', value='End the current pickup (even if you did not start it)', inline=False)
 			emb.add_field(name=cmdprefix + 'pickup', value='Start a new pickup game', inline=False)
 			emb.add_field(name=cmdprefix + 'players <numberOfPlayers>', value='Change the number of players and the size of the teams', inline=False)
