@@ -550,12 +550,11 @@ async def send_information(blueTeam, redTeam, mappa, msg, serverID, serverPW):
 		blueTeamMention.append(p.mention)	# so we can mention all the members of the blue team
 
 	# Display the game information
-	emb = (discord.Embed(title="The teams and map have been selected", colour=0x00ff00))
+	emb = (discord.Embed(title="The pickup is starting!!\nMap: " + mappa, colour=0x00ff00))
 	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
-	emb.add_field(name='Red Team', value="\n".join(map(str, redTeamMention)))		# Red Team information
-	emb.add_field(name='Blue Team', value="\n".join(map(str, blueTeamMention)))		# Blue Team information				
-	emb.add_field(name='Map', value=str(mappa))										# Display the map information
-	await client.send_message(msg.channel, embed=emb )	
+	await client.send_message(msg.channel, embed=emb )
+	await send_emb_message_to_channel_blue("\n".join(map(str, blueTeamMention)), msg)	# Blue Team information				
+	await send_emb_message_to_channel_red("\n".join(map(str, redTeamMention)), msg)		# Red Team information	
 	
 # Cycle through a user's roles to determine if they have admin access
 # returns True if they do have access
@@ -1038,7 +1037,7 @@ async def on_message(msg):
 				except (discord.Forbidden, discord.HTTPException):
 					continue
 				break
-				
+
 # Run the bot
 client.run(token)
 		
