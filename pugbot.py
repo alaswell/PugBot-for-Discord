@@ -153,7 +153,10 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 			if((counter % 3) == 0):
 				await send_emb_message_to_channel(0xff0000, "Missing players:\n\n" + afkstr, msg)
 				for p in afk_players:
-					await client.send_message(p, embed=emb )	
+					try:
+						await client.send_message(p, embed=emb )	
+					except Exception:
+						pass
 			counter += 1
 		else:
 			# all players in list are idle in channel and ready
