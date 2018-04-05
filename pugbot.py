@@ -822,8 +822,8 @@ async def on_message(msg):
 						elif(atom == "INVALID"): atom = message[1]
 						# only allow maps that exist on server and only put in list once
 						if(atom in maps):
-							# TODO (1): this check is not working correctly
-							for mp in mapPicks:
+							# check to see if someone else noimated this map 
+							for a, mp in mapPicks.items():
 								if(atom == str(mp)):
 									await send_emb_message_to_channel(0xff0000, msg.author.mention + " that map has already been nominated. Please make another selection", msg)
 									return # break out if duplicate nomination
