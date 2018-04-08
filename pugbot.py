@@ -114,11 +114,8 @@ async def count_votes_message_channel(tdelta, keys, msg, votelist, votetotals):
 	# tally the buckets
 	for k,v in votelist.items():
 		votetotals[v-1] += 1
-	# move tallies to values for zip
-	for v in votetotals:
-		values.append(v)
 	# zip with keys to make a nice dict
-	totals = dict(zip(keys, values))
+	totals = dict(zip(keys, votetotals))
 	for x,y in totals.items():
 		tmpstr = tmpstr + str(x) + " : " + str(y) + "\n"
 	# set up the remaining time to vote timedelta
