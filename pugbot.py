@@ -400,7 +400,7 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 				positions.append(pos)
 		else:
 			duplicateFnd = True
-			positions = [0,1,2]
+			positions = list(range(1, sizeOfMapPool))
 			
 		# randomly pick from list if we have a tie
 		if(duplicateFnd):		
