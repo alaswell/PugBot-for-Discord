@@ -168,8 +168,8 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 				await client.remove_roles(idleUser, role)
 			except Exception:
 				pass
-		await send_emb_message_to_channel(0xff0000, idleUser.mention + " has been removed from the pickup due to inactivity", msg)
-		await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+			await send_emb_message_to_channel(0xff0000, idleUser.mention + " has been removed from the pickup due to inactivity", msg)
+			await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
 		return	False # break out if we remove a player
 	
 	inputobj = 0			# used to manipulate the objects from messages
