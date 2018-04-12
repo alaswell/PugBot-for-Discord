@@ -618,10 +618,13 @@ async def on_message(msg):
 			# 	we are not already selecting teams
 			if(msg.author in players):
 				await send_emb_message_to_channel(0xff0000, msg.author.mention + " you have already added to this pickup", msg)
+				return
 			elif(selectionMode):
 				await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot add once the pickup has begun", msg)
+				return 
 			elif(len(players) == sizeOfGame):
 				await send_emb_message_to_channel(0xff0000, msg.author.mention + " sorry, the game is currently full\nYou will have to wait until the next one starts", msg)
+				return 
 			else:	# all clear to add them				
 				# add to pool for easier notification
 				role = discord.utils.get(msg.server.roles, id=poolRoleID)
