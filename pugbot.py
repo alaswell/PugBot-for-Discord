@@ -50,7 +50,6 @@ server = client.get_server(id=discordServerID)
 # create the MongoDB client and connect to the database
 dbclient = pymongo.MongoClient(dbtoken)
 db = dbclient.FortressForever
-
 # Globals 
 chosenMap = []
 lastMap = []
@@ -90,13 +89,12 @@ async def check_for_afk_players(msg, players, readyupChannelID):
 	return afk_players
 
 async def check_for_map_nominations(mapPicks, msg, sizeOfMapPool):
-	if(len(mapPicks) < sizeOfMapPool):
+	while(len(mapPicks) < sizeOfMapPool):
 		# need to build the list of maps
 		mapStr = ""
 		for k in mapPicks:
 			mapStr = mapStr + str(mapPicks[k]) + " (" + k.mention + ")\n"
 		await send_emb_message_to_channel(0xff0000, "Players must nominate more maps before we can proceed\nCurrently Nominated Maps (" + str(len(mapPicks)) + "/" + str(sizeOfMapPool) + ")\n" + mapStr, msg)
-	while(len(mapPicks) < sizeOfMapPool):
 		async def needMapPicks(msg):						
 			# check function for advance filtering
 			def check(msg):
