@@ -4,6 +4,7 @@
 #	PugBot-for-Discord by techlover1 https://github.com/techlover1/PugBot-for-Discord
 			
 # Imports
+from collections import OrderedDict
 from datetime import timedelta
 from random import shuffle
 from random import choice
@@ -115,7 +116,7 @@ async def count_votes_message_channel(tdelta, keys, msg, votelist, votetotals):
 	for k,v in votelist.items():
 		votetotals[v-1] += 1
 	# zip with keys to make a nice dict
-	totals = dict(zip(keys, votetotals))
+	totals = OrderedDict(zip(keys, votetotals))
 	for x,y in totals.items():
 		tmpstr = tmpstr + str(x) + " : " + str(y) + "\n"
 	# set up the remaining time to vote timedelta
@@ -389,6 +390,7 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 		duplicateFnd = False
 		role = discord.utils.get(msg.server.roles, id=poolRoleID)
 		await send_emb_message_to_channel(0x00ff00, "Map voting has started\n\n" + role.mention + " you have " + str(durationOfMapVote) + " seconds to vote for a map\n\nreply with a number between 1 and " + str(sizeOfMapPool) + " to cast your vote", msg)
+		await count_votes_message_channel(td, keys, msg, votelist, votetotals)
 		while(td.total_seconds() < durationOfMapVote):
 			async def gatherVotes(msg):						
 				# check function for advance filtering
