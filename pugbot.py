@@ -99,10 +99,10 @@ async def check_for_map_nominations(mapPicks, msg, sizeOfMapPool):
 	while(len(mapPicks) < sizeOfMapPool):
 		async def needMapPicks(msg):						
 			# check function for advance filtering
-			async def check(msg):
+			def check(msg):
 				return msg.content.startswith(cmdprefix + 'nominate')
 			# wait until someone nominates another map
-			await client.wait_for_message(check=check)
+			await client.wait_for_message(timeout=30, check=check)
 		await needMapPicks(msg)
 
 async def count_votes_message_channel(tdelta, keys, msg, votelist, votetotals):
