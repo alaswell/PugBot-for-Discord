@@ -25,6 +25,7 @@ discordServerID = config.discordServerID
 dbtoken = config.dbtoken
 durationOfMapVote = config.durationOfMapVote
 durationOfReadyUp = config.durationOfReadyUp
+durationOfVeto = config.durationOfVeto
 maps = config.maps
 mapprefix = config.mapprefix
 playerRoleID = config.playerRoleID
@@ -50,6 +51,7 @@ server = client.get_server(id=discordServerID)
 # create the MongoDB client and connect to the database
 dbclient = pymongo.MongoClient(dbtoken)
 db = dbclient.FortressForever
+
 # Globals 
 chosenMap = []
 lastMap = []
@@ -96,13 +98,26 @@ async def check_for_map_nominations(mapPicks, msg, sizeOfMapPool):
 			mapStr = mapStr + str(mapPicks[k]) + " (" + k.mention + ")\n"
 		await send_emb_message_to_channel(0xff0000, "Players must nominate more maps before we can proceed\nCurrently Nominated Maps (" + str(len(mapPicks)) + "/" + str(sizeOfMapPool) + ")\n" + mapStr, msg)
 		async def needMapPicks(msg):						
-			# check function for advance filtering
+			# check function for advanced filtering
 			def check(msg):
 				return msg.content.startswith(cmdprefix + 'nominate')
 			# wait until someone nominates another map
 			await client.wait_for_message(timeout=30, check=check)
 		await needMapPicks(msg)
 
+async def check_for_veto(command, msg, game_starter):
+	# generic check to allow game_starter to !veto another admin's command
+	await send_emb_message_to_channel(0xff0000, game_starter.mention + "\n\n" + msg.author.mention + " is trying to " + command + " your pickup. You have " + str(durationOfVeto) + " seconds to " + cmdprefix + "veto them, or the command will happen", msg)
+	# check for advanced filtering
+	def check(msg):
+		return msg.content.startswith(cmdprefix + 'veto')
+	inputobj = await client.wait_for_message(timeout=durationOfVeto, author=game_starter, check=check)
+	# wait_for_message returns 'None' if asyncio.TimeoutError thrown
+	if(inputobj != None): # game_starter did !veto the command		
+		return True
+	else: # game_starter did not !veto
+		return False
+		
 async def count_votes_message_channel(tdelta, keys, msg, votelist, votetotals):
 	values = []
 	totals = {}
@@ -744,7 +759,8 @@ async def on_message(msg):
 			emb.add_field(name=cmdprefix + 'players <numberOfPlayers>', value='Change the number of players and the size of the teams', inline=False)
 			emb.add_field(name=cmdprefix + 'remove @player', value='Removes the player you specified from the pickup', inline=False)
 			emb.add_field(name=cmdprefix + 'setmode <random/vote>', value='Change the way the map is chosen, options are random or vote (Game Starter Only)', inline=False)
-			emb.add_field(name=cmdprefix + 'transfer @admin', value='Give your pickup to another admin (Game Starter Only)', inline=False)
+			emb.add_field(name=cmdprefix + 'transfer @admin', value='Give your pickup to another admin (Game Starter) or take possesion of another admins pickup (All Other Admins)', inline=False)
+			emb.add_field(name=cmdprefix + 'veto', value='Stop another admin from using !end or !transfer on your pickup', inline=False)
 			await client.send_message(msg.author, embed=emb)
 			
 	# Demos - Provides the msg.author with a link to the currently stored demos via direct message
@@ -756,19 +772,23 @@ async def on_message(msg):
 		if(pickupRunning):
 			# admin command
 			if (await user_has_access(msg.author)):
-				mapPicks.clear()
-				role = discord.utils.get(msg.server.roles, id=poolRoleID)
-				for p in players:
-					try:
-						await client.remove_roles(p, role)
-					except Exception:
-						pass
-				del players[:]
-				del starter[:]
-				selectionMode = False
-				pickupRunning = False
-				await send_emb_message_to_channel(0x00ff00, "The pickup has been ended by an admin", msg)
-				await client.change_presence(game=discord.Game(name=''))
+				# only end if admin is game_starter or game_starter does not !veto in time
+				if(starter[0] == msg.author or not await check_for_veto(cmdprefix + "end", msg, starter[0])):
+					mapPicks.clear()
+					role = discord.utils.get(msg.server.roles, id=poolRoleID)
+					for p in players:
+						try:
+							await client.remove_roles(p, role)
+						except Exception:
+							pass
+					del players[:]
+					del starter[:]
+					selectionMode = False
+					pickupRunning = False
+					await send_emb_message_to_channel(0x00ff00, "The pickup has been ended by an admin", msg)
+					await client.change_presence(game=discord.Game(name=' '))
+				else:
+					await send_emb_message_to_channel(0xff0000, starter[0].mention + " has vetoed the command", msg)
 			else:
 				await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
 		else:
@@ -910,35 +930,39 @@ async def on_message(msg):
 		if(pickupRunning):
 			# admin command
 			if (await user_has_access(msg.author)):
-				if(selectionMode):
-					await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot change the sizes once the pickup has begun", msg)
-				else:
-					message = msg.content.split()
-					if(len(message) == 1):
-						await send_emb_message_to_user(0xff0000, "You must provide a new size " + cmdprefix + "players <numberOfPlayers>", msg)
+				# make sure this admin owns this pickup
+				if(starter[0] == msg.author):
+					if(selectionMode):
+						await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot change the sizes once the pickup has begun", msg)
 					else:
-						# make sure the msg.author is giving an integer value
-						while True:
-							try:
-								sz = int(message[1])
-								if(sz == 0):
-									# zero players? Just end it then
-									await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot change to zero players, please use " + cmdprefix + "end instead", msg)
-								elif((sz % 2) == 0):
-									# even number
-									if(sz < len(players)):
-										# do not lower sizes if more players have added already
-										await send_emb_message_to_channel(0xff0000, msg.author.mention + " the player pool is too big to change to that value", msg)
+						message = msg.content.split()
+						if(len(message) == 1):
+							await send_emb_message_to_user(0xff0000, "You must provide a new size " + cmdprefix + "players <numberOfPlayers>", msg)
+						else:
+							# make sure the msg.author is giving an integer value
+							while True:
+								try:
+									sz = int(message[1])
+									if(sz == 0):
+										# zero players? Just end it then
+										await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot change to zero players, please use " + cmdprefix + "end instead", msg)
+									elif((sz % 2) == 0):
+										# even number
+										if(sz < len(players)):
+											# do not lower sizes if more players have added already
+											await send_emb_message_to_channel(0xff0000, msg.author.mention + " the player pool is too big to change to that value", msg)
+										else:
+											sizeOfTeams = int(sz/2)
+											sizeOfGame = int(sz)
+											await send_emb_message_to_channel(0x00ff00, msg.author.mention + " the size of the game has been changed to " + str(sz), msg)
 									else:
-										sizeOfTeams = int(sz/2)
-										sizeOfGame = int(sz)
-										await send_emb_message_to_channel(0x00ff00, msg.author.mention + " the size of the game has been changed to " + str(sz), msg)
-								else:
-									# odd number
-									await send_emb_message_to_channel(0xff0000, msg.author.mention + " the size of the teams must be even", msg)
-							except(ValueError):
-								continue
-							break
+										# odd number
+										await send_emb_message_to_channel(0xff0000, msg.author.mention + " the size of the teams must be even", msg)
+								except(ValueError):
+									continue
+								break
+				else:
+					await send_emb_message_to_channel(0xff0000, msg.author.mention + " sorry, this pickup does not belong to you, it belongs to " + starter[0].mention, msg)
 			else:
 				await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
 		else:
@@ -1060,7 +1084,13 @@ async def on_message(msg):
 					else:
 						await send_emb_message_to_channel(0xff0000, msg.author.mention + " you can only transfer your pickup to another admin", msg)
 				else:
-					await send_emb_message_to_channel(0x00ff00, msg.author.mention + " no worries, this pickup does not belong to you, it belongs to " + starter[0].mention, msg)
+					# some other admin is trying to transfer this pickup
+					if(not await check_for_veto(cmdprefix + "transfer", msg, starter[0])):
+						await send_emb_message_to_channel(0x00ff00, starter[0].mention + " your pickup has successfully been transfered to " + msg.author.mention, msg)
+						starter = []
+						starter.append(msg.author)
+					else:
+						await send_emb_message_to_channel(0xff0000, starter[0].mention + " has vetoed the transfer", msg)
 			else:
 				await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
 		else:
