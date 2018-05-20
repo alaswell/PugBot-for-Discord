@@ -323,7 +323,8 @@ async def pick_captains(msg, caps, players):
 			# msg.mentions returns an unordered list 
 			# therfor we have to get each name individually 
 			# this way the admin has control over who is blue and red
-			await send_emb_message_to_channel_blue(game_starter.mention + " pick the blue team captain using @playername in your reply", msg)
+			plyrStr = '\n'.join([p.mention for p in players])
+			await send_emb_message_to_channel_blue(game_starter.mention + " pick the blue team captain using @playername in your reply. Available players are:\n\n" + plyrStr, msg)
 			# await send_emb_message_to_channel(0x00ff00, game_starter.mention + " pick the blue team captain using @playername in your reply", msg)
 			while bcap == client.user.name:
 				try:
@@ -332,15 +333,20 @@ async def pick_captains(msg, caps, players):
 					if(inputobj != None):
 						bcap = inputobj.mentions[0]
 						if(bcap not in players):
-							await send_emb_message_to_channel(0xff0000, game_starter.mention + " player must be added to the pickup", msg)
+							await send_emb_message_to_channel(0xff0000, game_starter.mention + " player must be added to the pickup. Available players are:\n\n" + plyrStr, msg)
 							bcap = client.user.name
 					else: # timeout
-						await send_emb_message_to_channel_blue(game_starter.mention + " pick the blue team captain using @playername in your reply", msg)
+						await send_emb_message_to_channel_blue(game_starter.mention + " pick the blue team captain using @playername in your reply. Available players are:\n\n" + plyrStr, msg)
 				except(IndexError):
 					# keep trying if they did not mention someone
-					await send_emb_message_to_channel_blue(game_starter.mention + " pick the blue team captain using @playername in your reply", msg)
+					await send_emb_message_to_channel_blue(game_starter.mention + " pick the blue team captain using @playername in your reply. Available players are:\n\n" + plyrStr, msg)
 			# do the same for red team
-			await send_emb_message_to_channel_red(game_starter.mention + " pick the red team captain using @playername in your reply", msg)
+			temp = []	# list for players
+			for p in players:
+				if p != bcap:
+					temp.append(p)
+			plyrStr = '\n'.join([p.mention for p in temp])
+			await send_emb_message_to_channel_red(game_starter.mention + " pick the red team captain using @playername in your reply. Available players are:\n\n" + plyrStr, msg)
 			while rcap == client.user.name:
 				try:
 					# try to get the user the admin has specified
@@ -348,13 +354,13 @@ async def pick_captains(msg, caps, players):
 					if(inputobj != None):
 						rcap = inputobj.mentions[0]
 						if(rcap not in players):
-							await send_emb_message_to_channel(0xff0000, game_starter.mention + " player must be added to the pickup", msg)
+							await send_emb_message_to_channel(0xff0000, game_starter.mention + " player must be added to the pickup. Available players are:\n\n" + plyrStr, msg)
 							rcap = client.user.name
 					else: # timeout
-						await send_emb_message_to_channel_red(game_starter.mention + " pick the red team captain using @playername in your reply", msg)
+						await send_emb_message_to_channel_red(game_starter.mention + " pick the red team captain using @playername in your reply. Available players are:\n\n" + plyrStr, msg)
 				except(IndexError):
 					# keep trying if they did not mention someone
-					await send_emb_message_to_channel_red(game_starter.mention + " pick the red team captain using @playername in your reply", msg)
+					await send_emb_message_to_channel_red(game_starter.mention + " pick the red team captain using @playername in your reply. Available players are:\n\n" + plyrStr, msg)
 			if(bcap == rcap):
 				await send_emb_message_to_channel(0xff0000, game_starter.mention + " you cannot pick the same captain for both teams", msg)
 				return False	
