@@ -90,8 +90,8 @@ async def check_for_afk_players(msg, players, readyupChannelID):
 				afk_players.append(p)	# add to missing players list
 	return afk_players
 
-async def check_for_map_nominations(mapPicks, msg, sizeOfMapPool):
-	while(len(mapPicks) < sizeOfMapPool):
+async def check_for_map_nominations(mapPicks, msg, sizeOfMapPool, pickupRunning):
+	while(len(mapPicks) < sizeOfMapPool and pickupRunning):
 		# need to build the list of maps
 		mapStr = ""
 		for k in mapPicks:
@@ -196,6 +196,7 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	caps = []
 	redTeam = []
 	blueTeam = []
+	playerPool = []
 	
 	# Begin the pickup
 	await send_emb_message_to_channel(0x00ff00, "All players are confirmed ready!", msg)
@@ -204,7 +205,7 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	await client.change_presence(game=discord.Game(name='Map Selection'))
 	
 	# do we have the right amount of map nominations
-	await check_for_map_nominations(mapPicks, msg, sizeOfMapPool)
+	await check_for_map_nominations(mapPicks, msg, sizeOfMapPool, pickupRunning)
 		
 	# vote for maps
 	chosenMap = await pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps)
@@ -223,14 +224,10 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 		blueTeam = [caps[0]]
 		redTeam = [caps[1]]
 		
-		try:
-			players.remove(caps[0])
-		except IndexError as error:
-			pass
-		try:
-			players.remove(caps[1])
-		except IndexError as error:
-			pass
+		# copy the player pool over
+		for p in players:
+			if p not in caps:
+				playerPool.append(p)
 		
 	# Begin the pickup
 	await send_emb_message_to_channel(0x00ff00, caps[0].mention + " vs " + caps[1].mention, msg)
@@ -241,12 +238,12 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	# if teams are not already full:
 	if(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
 		# Blue captain picks first
-		await blue_team_picks(blueTeam, redTeam, caps, players, msg)
-		await red_team_picks(blueTeam, redTeam, caps, players, msg)
+		await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+		await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
 		while(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
 			# Red  captain gets two picks first round so start with red
-			await red_team_picks(blueTeam, redTeam, caps, players, msg)
-			await blue_team_picks(blueTeam, redTeam, caps, players, msg)
+			await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+			await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
 
 	# pm users and message server with game information
 	await send_information(blueTeam, redTeam, chosenMap, msg, serverID, serverPW)
@@ -296,8 +293,8 @@ async def mapname_is_alias(msg, mpname):
 # wait until the game starter makes a decision				
 async def pick_captains(msg, caps, players):
 	game_starter = msg.server.get_member(starter[0].id)
-	bcap = game_starter
-	rcap = game_starter
+	bcap = client.user.name
+	rcap = client.user.name
 	# set presence 
 	await client.change_presence(game=discord.Game(name='Selecting Captains'))
 	
@@ -328,7 +325,7 @@ async def pick_captains(msg, caps, players):
 			# this way the admin has control over who is blue and red
 			await send_emb_message_to_channel_blue(game_starter.mention + " pick the blue team captain using @playername in your reply", msg)
 			# await send_emb_message_to_channel(0x00ff00, game_starter.mention + " pick the blue team captain using @playername in your reply", msg)
-			while True:
+			while bcap == client.user.name:
 				try:
 					# try to get the user the admin has specified
 					inputobj = await client.wait_for_message(timeout=60, author=game_starter)
@@ -336,18 +333,15 @@ async def pick_captains(msg, caps, players):
 						bcap = inputobj.mentions[0]
 						if(bcap not in players):
 							await send_emb_message_to_channel(0xff0000, game_starter.mention + " player must be added to the pickup", msg)
-							continue
+							bcap = client.user.name
 					else: # timeout
 						await send_emb_message_to_channel_blue(game_starter.mention + " pick the blue team captain using @playername in your reply", msg)
-						continue
 				except(IndexError):
 					# keep trying if they did not mention someone
 					await send_emb_message_to_channel_blue(game_starter.mention + " pick the blue team captain using @playername in your reply", msg)
-					continue
-				break
 			# do the same for red team
 			await send_emb_message_to_channel_red(game_starter.mention + " pick the red team captain using @playername in your reply", msg)
-			while True:
+			while rcap == client.user.name:
 				try:
 					# try to get the user the admin has specified
 					inputobj = await client.wait_for_message(timeout=60, author=game_starter)
@@ -355,15 +349,12 @@ async def pick_captains(msg, caps, players):
 						rcap = inputobj.mentions[0]
 						if(rcap not in players):
 							await send_emb_message_to_channel(0xff0000, game_starter.mention + " player must be added to the pickup", msg)
-							continue
+							rcap = client.user.name
 					else: # timeout
 						await send_emb_message_to_channel_red(game_starter.mention + " pick the red team captain using @playername in your reply", msg)
-						continue
 				except(IndexError):
 					# keep trying if they did not mention someone
 					await send_emb_message_to_channel_red(game_starter.mention + " pick the red team captain using @playername in your reply", msg)
-					continue
-				break
 			if(bcap == rcap):
 				await send_emb_message_to_channel(0xff0000, game_starter.mention + " you cannot pick the same captain for both teams", msg)
 				return False	
