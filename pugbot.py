@@ -239,11 +239,21 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	if(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
 		# Blue captain picks first
 		await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
-		await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
-		while(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
-			# Red  captain gets two picks first round so start with red
+		if(len(playerPool) > 1):
+			# only make the captain pick if they have a choice
 			await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
-			await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+		else:
+			redTeam.append(playerPool[0])
+			await send_emb_message_to_channel_red(playerPool[0].mention + " has been added to the team", msg)
+		while(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
+			# Red captain gets two picks first round so start with red
+			await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+			if(len(playerPool) > 1):
+				# only make the captain pick if they have a choice
+				await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+			else:
+				blueTeam.append(playerPool[0])
+				await send_emb_message_to_channel_blue(playerPool[0].mention + " has been added to the team", msg)
 
 	# pm users and message server with game information
 	await send_information(blueTeam, redTeam, chosenMap, msg, serverID, serverPW)
