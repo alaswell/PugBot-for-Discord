@@ -598,7 +598,7 @@ async def send_information(blueTeam, redTeam, mappa, msg, serverID, serverPW):
 	# send each user the server and password information
 	redTeamMention = []
 	blueTeamMention = []				
-	emb = (discord.Embed(title="connect " + serverID + " " + serverPW, colour=0x00ff00))
+	emb = (discord.Embed(title="steam://connect/" + serverID + "/" + serverPW, colour=0x00ff00))
 	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
 	for p in redTeam:
 		await client.send_message(p, embed=emb )
