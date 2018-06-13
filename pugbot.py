@@ -229,7 +229,17 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	pick_captains_counter = 1	# tracks how many times the game_starter has been asked
 	randomTeams = await pick_captains(msg, caps, players)
 	while(len(caps) < 2):
-		if(pick_captains_counter > 2):
+		if(len(players) < sizeOfGame):
+			if(len(players) > 0):
+				# game is no longer full
+				await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
+				await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+				return False 
+			else:
+				# game has been !ended 
+				await client.change_presence(game=discord.Game(name=' '))
+				return True
+		elif(pick_captains_counter > 2):
 			# game_starter is afk ... pug will be ended
 			await send_emb_message_to_channel(0xff0000, "This pickup has been abandoned by the admin and will now be ended. Someone who is here will need to start a new one", msg)
 			await client.change_presence(game=discord.Game(name=' '))
@@ -767,7 +777,7 @@ async def on_message(msg):
 	if(msg.content.startswith(cmdprefix + "admin")):
 		# there must be an active pickup
 		if(pickupRunning):
-			await send_emb_message_to_channel(0x00ff00, "Game Admin is: " + game_starter.mention, msg)
+			await send_emb_message_to_channel(0x00ff00, "Game Admin is: " + starter[0].mention, msg)
 		else:
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
 			
