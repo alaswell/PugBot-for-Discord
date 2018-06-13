@@ -1153,9 +1153,9 @@ async def on_message(msg):
 							newCap = msg.mentions[0]
 						except(IndexError):
 							await send_emb_message_to_channel(0x00ff00, msg.author.mention + " you must type !transfer @nameOfAdmin to transfer your pickup.", msg)
-							newCap = msg.author
+							return	# break out if they did not specify a user
 						break
-					if(newCap == msg.author): return	# break out if they did not specify a user
+						
 					if(await user_has_access(newCap)):
 						starter = []
 						starter.append(newCap)
@@ -1163,9 +1163,17 @@ async def on_message(msg):
 					else:
 						await send_emb_message_to_channel(0xff0000, msg.author.mention + " you can only transfer your pickup to another admin", msg)
 				else:
-					# some other admin is trying to transfer this pickup
+					# check for a pick and catch if they mention another player				
+					while True:
+						try:
+							newCap = msg.mentions[0]
+							await send_emb_message_to_channel(0xff0000, msg.author.mention + " you may only transfer your own pickup to another player", msg)
+							return # break out if they accidentally specify a user
+						except(IndexError):
+							break
+					# otherwise some other admin is trying to transfer (read: take) this pickup
 					if(not await check_for_veto(cmdprefix + "transfer", msg, starter[0])):
-						await send_emb_message_to_channel(0x00ff00, starter[0].mention + " your pickup has successfully been transfered to " + msg.author.mention, msg)
+						await send_emb_message_to_channel(0x00ff00, msg.author.mention + " you have successfully taken possesion of " + starter[0].mention + " pickup", msg)
 						starter = []
 						starter.append(msg.author)
 					else:
