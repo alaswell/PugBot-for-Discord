@@ -139,6 +139,7 @@ async def count_votes_message_channel(tdelta, keys, msg, votelist, votetotals):
 async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pickupRunning, players, poolRoleID, readyupChannelID, voteForMaps):
 	afk_players = []
 	counter = 0
+	pick_captains_counter = 0
 	countdown = time.time()
 	elapsedtime = time.time() - countdown
 	td = timedelta(seconds=elapsedtime)
@@ -225,9 +226,17 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 		return False 
 		
 	# loop until the game starter makes a decision
+	pick_captains_counter = 1	# tracks how many times the game_starter has been asked
 	randomTeams = await pick_captains(msg, caps, players)
 	while(len(caps) < 2):
-		randomTeams = await pick_captains(msg, caps, players)
+		if(pick_captains_counter > 2):
+			# game_starter is afk ... pug will be ended
+			await send_emb_message_to_channel(0xff0000, "This pickup has been abandoned by the admin and will now be ended. Someone who is here will need to start a new one", msg)
+			await client.change_presence(game=discord.Game(name=' '))
+			return True
+		else:
+			randomTeams = await pick_captains(msg, caps, players)
+			pick_captains_counter += 1
 		
 	# one last time ... make sure we are still full
 	if(len(players) < sizeOfGame):
@@ -432,7 +441,7 @@ async def pick_captains(msg, caps, players):
 			return True
 		else:
 			return False	# not a valid option
-	else:		
+	else: #inputobj == None
 		return False	# timeout
 
 async def pick_map(lastMap, mapMode, msg, players, poolRoleID, sizeOfGame, sizeOfMapPool, voteForMaps):
