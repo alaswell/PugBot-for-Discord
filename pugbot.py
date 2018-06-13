@@ -90,8 +90,8 @@ async def check_for_afk_players(msg, players, readyupChannelID):
 				afk_players.append(p)	# add to missing players list
 	return afk_players
 
-async def check_for_map_nominations(mapPicks, msg, sizeOfMapPool, pickupRunning):
-	while(len(mapPicks) < sizeOfMapPool and pickupRunning):
+async def check_for_map_nominations(mapPicks, msg, sizeOfGame, sizeOfMapPool, pickupRunning, players):
+	while(len(mapPicks) < sizeOfMapPool and pickupRunning and len(players) == sizeOfGame):
 		# need to build the list of maps
 		mapStr = ""
 		for k in mapPicks:
@@ -205,16 +205,37 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	await client.change_presence(game=discord.Game(name='Map Selection'))
 	
 	# do we have the right amount of map nominations
-	await check_for_map_nominations(mapPicks, msg, sizeOfMapPool, pickupRunning)
+	await check_for_map_nominations(mapPicks, msg, sizeOfGame, sizeOfMapPool, pickupRunning, players)
+	
+	# are we still full
+	if(len(players) < sizeOfGame):
+		# not full
+		await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
+		await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+		return False 
 		
 	# vote for maps
-	chosenMap = await pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps)
+	chosenMap = await  pick_map(lastMap, mapMode, msg, players, poolRoleID, sizeOfGame, sizeOfMapPool, voteForMaps)
 	
+	# make sure we are still full
+	if(len(players) < sizeOfGame):
+		# not full
+		await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
+		await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+		return False 
+		
 	# loop until the game starter makes a decision
 	randomTeams = await pick_captains(msg, caps, players)
 	while(len(caps) < 2):
 		randomTeams = await pick_captains(msg, caps, players)
-	
+		
+	# one last time ... make sure we are still full
+	if(len(players) < sizeOfGame):
+		# not full
+		await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
+		await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+		return False 
+		
 	# set up the initial teams
 	if(randomTeams):
 		for i in range(0, sizeOfTeams):
@@ -237,6 +258,12 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	
 	# if teams are not already full:
 	if(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
+		if(len(players) < sizeOfGame):
+			# someone has left the pug
+			await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
+			await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+			return False 
+
 		# Blue captain picks first
 		await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
 		if(len(playerPool) > 1):
@@ -246,8 +273,15 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 			redTeam.append(playerPool[0])
 			await send_emb_message_to_channel_red(playerPool[0].mention + " has been added to the team", msg)
 		while(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
+			if(len(players) < sizeOfGame):
+				# someone has left the pug
+				await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
+				await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+				return False 
+
 			# Red captain gets two picks first round so start with red
 			await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+			
 			if(len(playerPool) > 1):
 				# only make the captain pick if they have a choice
 				await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
@@ -379,19 +413,29 @@ async def pick_captains(msg, caps, players):
 				caps.append(rcap)
 				return False
 		elif(inputobj.content.startswith(cmdprefix + "shuffle")):
-			caps.append(players[0])
-			caps.append(players[1])
+			if(len(players) >= 2):
+				caps.append(players[0])
+				caps.append(players[1])
+			else:
+				# not enough players 
+				caps.append(game_starter)
+				caps.append(game_starter)
 			return False
 		elif(inputobj.content.startswith(cmdprefix + "random")):
-			caps.append(players[0])
-			caps.append(players[1])
+			if(len(players) >= 2):
+				caps.append(players[0])
+				caps.append(players[1])
+			else:
+				# not enough players
+				caps.append(game_starter)
+				caps.append(game_starter)
 			return True
 		else:
 			return False	# not a valid option
 	else:		
 		return False	# timeout
 
-async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps):
+async def pick_map(lastMap, mapMode, msg, players, poolRoleID, sizeOfGame, sizeOfMapPool, voteForMaps):
 # vote for maps or random
 	if(voteForMaps):
 		votelist = {}
@@ -411,7 +455,7 @@ async def pick_map(lastMap, mapMode, msg, poolRoleID, sizeOfMapPool, voteForMaps
 		role = discord.utils.get(msg.server.roles, id=poolRoleID)
 		await send_emb_message_to_channel(0x00ff00, "Map voting has started\n\n" + role.mention + " you have " + str(durationOfMapVote) + " seconds to vote for a map\n\nreply with a number between 1 and " + str(sizeOfMapPool) + " to cast your vote", msg)
 		await count_votes_message_channel(td, keys, msg, votelist, votetotals)
-		while(td.total_seconds() < durationOfMapVote):
+		while(td.total_seconds() < durationOfMapVote and len(players) == sizeOfGame):
 			async def gatherVotes(msg):						
 				# check function for advance filtering
 				def check(msg):
