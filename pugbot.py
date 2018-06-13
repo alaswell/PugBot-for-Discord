@@ -763,6 +763,14 @@ async def on_message(msg):
 		else:
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
 
+	# Admin - Displays the admin of the current pickup
+	if(msg.content.startswith(cmdprefix + "admin")):
+		# there must be an active pickup
+		if(pickupRunning):
+			await send_emb_message_to_channel(0x00ff00, "Game Admin is: " + game_starter.mention, msg)
+		else:
+			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
+			
 	# Changelevel - Change the map in the server using the RCON commange changelevel
 	if (msg.content.startswith(cmdprefix + "changelevel ") or msg.content.startswith(cmdprefix + "changemap ")):
 		# admin command
@@ -795,6 +803,7 @@ async def on_message(msg):
 		emb = (discord.Embed(title="Player Commands:", description="FF Pickup Bot Commands accessible by all users", colour=0x00AE86))
 		emb.set_author(name=client.user.name, icon_url=client.user.default_avatar_url)
 		emb.add_field(name=cmdprefix + 'add', value='Adds yourself to the current pickup', inline=False)
+		emb.add_field(name=cmdprefix + 'admin', value='Displays the admin of the current pickup', inline=False)
 		emb.add_field(name=cmdprefix + 'commands', value='Prints this command menu', inline=False)
 		emb.add_field(name=cmdprefix + 'hawking', value='Displays a random quote from the late Dr. S. W. Hawking', inline=False)
 		emb.add_field(name=cmdprefix + 'journals', value='Displays a link to 55 papers written by Dr. Hawking in a peer-reviewed journal', inline=False)
