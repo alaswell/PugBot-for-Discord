@@ -42,6 +42,7 @@ singleChannelID = config.singleChannelID
 sizeOfTeams = config.sizeOfTeams
 sizeOfGame = config.sizeOfGame
 sizeOfMapPool = config.sizeOfMapPool
+timeoutRoleID = config.timeoutRoleID
 token = config.token 
 
 # Begin by creating the client and server object
@@ -707,6 +708,9 @@ async def on_message(msg):
 	# the bot handles authorizing access to the pickup channel
 	if msg.channel.id == requestChannelID: 
 		if(msg.content.startswith(cmdprefix + "pug")):
+			if(timeoutRoleID in [r.id for r in msg.author.roles]):
+				# do not allow if they are in timeout
+				return
 			role = discord.utils.get(msg.server.roles, id=playerRoleID)
 			while True:
 				try:
