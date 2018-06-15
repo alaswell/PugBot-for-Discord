@@ -710,6 +710,8 @@ async def on_message(msg):
 		if(msg.content.startswith(cmdprefix + "pug")):
 			if(timeoutRoleID in [r.id for r in msg.author.roles]):
 				# do not allow if they are in timeout
+				role = discord.utils.get(msg.server.roles, id=timeoutRoleID)
+				await send_emb_message_to_user(0xff0000, "I'm sorry, you cannot add to the pick-up channel while you are {0}. You will need to speak with a @Pug Admin for further details.".format(role.name), msg)
 				return
 			role = discord.utils.get(msg.server.roles, id=playerRoleID)
 			while True:
