@@ -821,10 +821,11 @@ async def on_message(msg):
 		emb.add_field(name=cmdprefix + 'add', value='Adds yourself to the current pickup', inline=False)
 		emb.add_field(name=cmdprefix + 'admin', value='Displays the admin of the current pickup', inline=False)
 		emb.add_field(name=cmdprefix + 'commands', value='Prints this command menu', inline=False)
+		emb.add_field(name=cmdprefix + 'demos', value='Provides you with a link to the currently stored demos', inline=False)
 		emb.add_field(name=cmdprefix + 'hawking', value='Displays a random quote from the late Dr. S. W. Hawking', inline=False)
 		emb.add_field(name=cmdprefix + 'journals', value='Displays a link to 55 papers written by Dr. Hawking in a peer-reviewed journal', inline=False)
-		emb.add_field(name=cmdprefix + 'demos', value='Provides you with a link to the currently stored demos', inline=False)
 		emb.add_field(name=cmdprefix + 'last', value='Displays information about the last pickup that was played', inline=False)
+		emb.add_field(name=cmdprefix + 'listmaps', value='Provides you with a list of all the maps that are available for nomination', inline=False)
 		emb.add_field(name=cmdprefix + 'map', value='Show the chosen map for the current pickup', inline=False)
 		emb.add_field(name=cmdprefix + 'maps', value='Show the nominated maps for the current pickup', inline=False)
 		emb.add_field(name=cmdprefix + 'maplist', value='Provides you with a list of all the maps that are available for nomination', inline=False)
@@ -942,7 +943,7 @@ async def on_message(msg):
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
 			
 	# Maplist - Provides the msg.author with a list of all the maps that are available for nomination via direct message
-	if (msg.content.startswith(cmdprefix + "maplist")): await send_emb_message_to_user(0x00ff00, "Currently, you may nominate any of the following maps:\n" + "\n".join(map(str, maps)), msg)
+	if (msg.content.startswith(cmdprefix + "maplist") or msg.content.startswith(cmdprefix + "listmaps")): await send_emb_message_to_user(0x00ff00, "Currently, you may nominate any of the following maps:\n" + "\n".join(map(str, maps)), msg)
 			
 	# Nominate - Nominate the specified map
 	if(msg.content.startswith(cmdprefix + "nominate ")):
