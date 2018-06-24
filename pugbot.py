@@ -844,6 +844,7 @@ async def on_message(msg):
 			emb.add_field(name=cmdprefix + 'pickup', value='Start a new pickup game', inline=False)
 			emb.add_field(name=cmdprefix + 'players <numberOfPlayers>', value='Change the number of players and the size of the teams', inline=False)
 			emb.add_field(name=cmdprefix + 'remove @player', value='Removes the player you specified from the pickup', inline=False)
+			emb.add_field(name=cmdprefix + 'removenom <mapname>', value='Removes the map nomination you specified from the pickup', inline=False)
 			emb.add_field(name=cmdprefix + 'setmode <random/vote>', value='Change the way the map is chosen, options are random or vote (Game Starter Only)', inline=False)
 			emb.add_field(name=cmdprefix + 'transfer @admin', value='Give your pickup to another admin (Game Starter) or take possesion of another admins pickup (All Other Admins)', inline=False)
 			emb.add_field(name=cmdprefix + 'veto', value='Stop another admin from using !end or !transfer on your pickup', inline=False)
@@ -1058,7 +1059,7 @@ async def on_message(msg):
 	if(msg.content.startswith(cmdprefix + "records")): await send_emb_message_to_user(0x00ff00, "All-time Records (work in progress): http://parser.ffpickup.com/v2/records/", msg)		
 		
 	# Remove - Removes msg.author and their map nomination from the pickup
-	if (msg.content.startswith(cmdprefix + "remove")):
+	if (msg.content.startswith(cmdprefix + "remove") and not msg.content.startswith(cmdprefix + "removenom")):
 		# there must be an active pickup
 		if(pickupRunning):
 			if(selectionMode is False):
@@ -1100,6 +1101,41 @@ async def on_message(msg):
 		else:
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
 	
+	# Remove Nomination - Removes the specified map nomination from the pickup
+	if (msg.content.startswith(cmdprefix + "removenom")):
+		# there must be an active pickup
+		if(pickupRunning):
+			if(selectionMode is False):
+				# must be an admin to remove a map nomination
+				if(await user_has_access(msg.author)):
+					message = msg.content.split()
+					# make sure the user provided a map
+					if(len(message) > 1):
+						# check to see if the provided map is an alias
+						atom = await mapname_is_alias(msg, message[1])
+						if(atom == "TOOSHORT"): return # mapname_is_alias handles messaging
+						elif(atom == "INVALID"): atom = message[1]
+						# only allow maps that exist on server and only put in list once
+						if(atom in maps):
+							# check to see if someone has noimated this map 
+							for author, mp in mapPicks.items():
+								if(atom == str(mp)):
+									# remove this nomination
+									mapPicks.pop(author, None)
+									await send_emb_message_to_channel(0x00ff00, atom + " has been removed from the nominations by " + msg.author.mention + " (admin)", msg)
+									return 
+						else:
+							await send_emb_message_to_channel(0xff0000, msg.author.mention + " that map is not in my !maplist. Please make another selection", msg)
+					else:
+						await send_emb_message_to_user(0xff0000, msg.author.mention + " you must provide a mapname. " + cmdprefix + "removenom <mapname>", msg)
+				else:
+					await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
+			else:	
+				# selectionMode is True
+				await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use !removenom once the pickup has begun", msg)
+		else:
+			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
+			
 	# Setmode - Change the way the map is picked
 	if (msg.content.startswith(cmdprefix + "setmode")):
 		# there must be an active pickup
