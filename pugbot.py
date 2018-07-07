@@ -228,7 +228,7 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 		
 	# loop until the game starter makes a decision
 	pick_captains_counter = 1	# tracks how many times the game_starter has been asked
-	randomTeams = await pick_captains(msg, caps, players)
+	randomTeams = await pick_captains(msg, caps, players, blueTeam, redTeam)
 	while(len(caps) < 2):
 		if(len(players) < sizeOfGame):
 			if(len(players) > 0):
@@ -246,7 +246,7 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 			await client.change_presence(game=discord.Game(name=' '))
 			return True
 		else:
-			randomTeams = await pick_captains(msg, caps, players)
+			randomTeams = await pick_captains(msg, caps, players, blueTeam, redTeam)
 			pick_captains_counter += 1
 		
 	# one last time ... make sure we are still full
@@ -355,7 +355,7 @@ async def mapname_is_alias(msg, mpname):
 	return "INVALID"
 		
 # wait until the game starter makes a decision				
-async def pick_captains(msg, caps, players):
+async def pick_captains(msg, caps, players, blueTeam, redTeam):
 	game_starter = msg.server.get_member(starter[0].id)
 	bcap = client.user.name
 	rcap = client.user.name
@@ -366,6 +366,7 @@ async def pick_captains(msg, caps, players):
 	emb = (discord.Embed(description=game_starter.mention + " please select one of the options below", colour=0x00ff00))
 	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
 	emb.add_field(name=cmdprefix + 'captains', value='to manually select the captains', inline=False)
+	emb.add_field(name=cmdprefix + 'manual', value='to manually select both teams', inline=False)
 	emb.add_field(name=cmdprefix + 'shuffle', value='to randomize the captains', inline=False)
 	emb.add_field(name=cmdprefix + 'random', value='to randomize the teams', inline=False)
 	await client.send_message(msg.channel, embed=emb )
@@ -373,6 +374,7 @@ async def pick_captains(msg, caps, players):
 	# check function for advance filtering
 	def check(msg):
 		if( msg.content.startswith(cmdprefix + 'captains')): return True
+		elif( msg.content.startswith(cmdprefix + 'manual')): return True
 		elif( msg.content.startswith(cmdprefix + 'shuffle')): return True
 		elif( msg.content.startswith(cmdprefix + 'random')): return True
 		return False
@@ -431,6 +433,73 @@ async def pick_captains(msg, caps, players):
 			else:
 				caps.append(bcap)
 				caps.append(rcap)
+				return False
+		if(inputobj.content.startswith(cmdprefix + "manual")):
+			plyrStr = ""
+			# do the picking here so that teams are full before we leave this function
+			while len(blueTeam) != sizeOfTeams:
+				plyrStr = ""
+				for p in players:
+					if p not in blueTeam:
+						plyrStr += p.mention
+						plyrStr += "\n"
+				await send_emb_message_to_channel_blue(game_starter.mention + " pick the players for the blue team using !blue <@playername>, <@playername>, ... , <@playername> in your reply.\n\nAvailable players are:\n\n" + plyrStr + "\n\n**Current players** are: " + '\n'.join([p.mention for p in blueTeam]), msg)
+				# check function for advance filtering
+				def check(msg):
+					return msg.content.startswith(cmdprefix + 'blue ')					
+				# try to get the users the admin has specified
+				inputobj = await client.wait_for_message(timeout=60, author=game_starter, check=check)
+				if(inputobj != None):
+					for p in inputobj.mentions:
+						if(p not in players):
+							await send_emb_message_to_channel(0xff0000, p.mention + " is not added to the pickup." + game_starter.mention + " you will need to pick someone else", msg)
+						else:
+							blueTeam.append(p)
+					if len(blueTeam) < sizeOfTeams:
+						# not enough players in blueTeam 
+						await send_emb_message_to_channel(0xff0000, game_starter.mention + " this team is not full, you will need to pick " + (sizeOfTeams - len(blueTeam)) + " more players", msg)
+					elif len(blueTeam) > sizeOfTeams:
+						# too many players in blueTeam
+						# loop until we have the right number
+						while len(blueTeam) != sizeOfTeams:
+							if len(blueTeam) < sizeOfTeams:
+								# admin took too many players off
+								# break and let outter loop handle this case
+								break
+							await send_emb_message_to_channel(0xff0000, game_starter.mention + " this team has too many players. Pick player(s) to take off using !takeoff <@playername>, <@playername>, ... , <@playername>\n\nCurrent players are:\n\n" + '\n'.join([p.mention for p in blueTeam]), msg)
+							# loop until the admin has specified someone
+							didRemove = False
+							while not didRemove:
+								# check for advanced filtering
+								def check(msg):
+									return msg.content.startswith(cmdprefix + 'takeoff')
+								inputobj = await client.wait_for_message(timeout=60, author=game_starter, check=check)
+								if(inputobj != None):
+									for p in inputobj.mentions:
+										xtra = p
+										if(xtra not in blueTeam):
+											await send_emb_message_to_channel(0xff0000, game_starter.mention + " that player is not on the team you will need to pick someone else", msg)
+										else:
+											# remove this player
+											blueTeam.remove(xtra)
+											didRemove = True
+								else: # timeout
+									await send_emb_message_to_channel(0xff0000, game_starter.mention + " pick the extra player to take off using !takeoff @playername in your reply. Current players are:\n\n" + '\n'.join([p.mention for p in blueTeam]), msg)						
+				else: # timeout means the admin never replied correctly -> check()
+					await send_emb_message_to_channel_blue(adminRoleMention + " please !transfer if the game starter is missing", msg)
+			# blueTeam is full
+			# everyone else goes into the redTeam
+			for p in players:
+				if p not in blueTeam:
+					redTeam.append(p)
+			if len(redTeam) < sizeOfTeams:
+				# this should never happen, but just in case
+				await send_emb_message_to_channel(0xff0000, "The teams are not even " + game_starter.mention + " we need to do this again", msg)
+				return False
+			else:
+				# Success, so we need to setup captains to break out of outter loop 
+				caps.append(blueTeam[0])
+				caps.append(redTeam[0])
 				return False
 		elif(inputobj.content.startswith(cmdprefix + "shuffle")):
 			if(len(players) >= 2):
