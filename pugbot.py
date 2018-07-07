@@ -149,7 +149,7 @@ async def count_votes_message_channel(tdelta, keys, msg, votelist, votetotals):
 	# set up the remaining time to vote timedelta
 	tdelta0 = tdelta - timedelta(microseconds=tdelta.microseconds)
 	await send_emb_message_to_channel(0x00ff00, tmpstr + "\n" + str(durationOfMapVote - tdelta0.total_seconds()) + " seconds remaining", msg)
-					
+		
 async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pickupRunning, players, poolRoleID, readyupChannelID, voteForMaps):
 	afk_players = []
 	counter = 0
@@ -217,7 +217,7 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 
 	# Verifying admin status if they have not already confirmed ready
 	if starter[0] not in players:
-		await send_emb_message_to_channel(0xff0000, "Verifying that we have an admin\n\n" + starter[0].mention + " please reply with !here so we can proceed", msg)
+		await send_emb_message_to_channel(0xffa500, "Verifying that we have an admin\n\n" + starter[0].mention + " please reply with !here so we can proceed", msg)
 		adminPresent = False
 		while not adminPresent:
 			adminPresent = await check_for_afk_admin(msg, starter[0])
@@ -264,91 +264,122 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 		await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
 		await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
 		return False 
-		
-	# loop until the game starter makes a decision
-	pick_captains_counter = 1	# tracks how many times the game_starter has been asked
-	randomTeams = await pick_captains(msg, caps, players, blueTeam, redTeam)
-	while(len(caps) < 2):
-		if(len(players) < sizeOfGame):
-			if(len(players) > 0):
-				# game is no longer full
-				await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
-				await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
-				return False 
-			else:
-				# game has been !ended 
+	
+	# by having the game admin approve 
+	# we can make sure teams end up fair more often
+	adminApproves = False
+	while not adminApproves:
+		# loop until the game starter makes a decision
+		pick_captains_counter = 1	# tracks how many times the game_starter has been asked
+		randomTeams = await pick_captains(msg, caps, players, blueTeam, redTeam)
+		while(len(caps) < 2):
+			if(len(players) < sizeOfGame):
+				if(len(players) > 0):
+					# game is no longer full
+					await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
+					await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+					return False 
+				else:
+					# game has been !ended 
+					await client.change_presence(game=discord.Game(name=' '))
+					return True
+			elif(pick_captains_counter > 2):
+				# game_starter is afk ... pug will be ended
+				role = discord.utils.get(msg.server.roles, id=poolRoleID)
+				await send_emb_message_to_channel(0xff0000, "This pickup has been abandoned by the admin and will now be ended\n\n" + role.mention + " someone who is here, will need to start a new one", msg)
 				await client.change_presence(game=discord.Game(name=' '))
 				return True
-		elif(pick_captains_counter > 2):
-			# game_starter is afk ... pug will be ended
-			role = discord.utils.get(msg.server.roles, id=poolRoleID)
-			await send_emb_message_to_channel(0xff0000, "This pickup has been abandoned by the admin and will now be ended\n\n" role.mention + " someone who is here, will need to start a new one", msg)
-			await client.change_presence(game=discord.Game(name=' '))
-			return True
-		else:
-			randomTeams = await pick_captains(msg, caps, players, blueTeam, redTeam)
-			pick_captains_counter += 1
-		
-	# one last time ... make sure we are still full
-	if(len(players) < sizeOfGame):
-		# not full
-		await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
-		await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
-		return False 
-		
-	# set up the initial teams
-	if(randomTeams):
-		for i in range(0, sizeOfTeams):
-			redTeam.append(players[i])
-			blueTeam.append(players[i+sizeOfTeams])
-	else:
-		blueTeam = [caps[0]]
-		redTeam = [caps[1]]
-		
-		# copy the player pool over
-		for p in players:
-			if p not in caps:
-				playerPool.append(p)
-		
-	# Begin the pickup
-	await send_emb_message_to_channel(0x00ff00, caps[0].mention + " vs " + caps[1].mention, msg)
-					
-	# Switch off picking until the teams are all full
-	await client.change_presence(game=discord.Game(name='Team Selection'))
-	
-	# if teams are not already full:
-	if(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
+			else:
+				randomTeams = await pick_captains(msg, caps, players, blueTeam, redTeam)
+				pick_captains_counter += 1
+			
+		# one last time ... make sure we are still full
 		if(len(players) < sizeOfGame):
-			# someone has left the pug
+			# not full
 			await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
 			await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
 			return False 
-
-		# Blue captain picks first
-		await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
-		if(len(playerPool) > 1):
-			# only make the captain pick if they have a choice
-			await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+			
+		# set up the initial teams
+		if(randomTeams):
+			for i in range(0, sizeOfTeams):
+				redTeam.append(players[i])
+				blueTeam.append(players[i+sizeOfTeams])
 		else:
-			redTeam.append(playerPool[0])
-			await send_emb_message_to_channel_red(playerPool[0].mention + " has been added to the team", msg)
-		while(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
+			blueTeam = [caps[0]]
+			redTeam = [caps[1]]
+			
+			# copy the player pool over
+			for p in players:
+				if p not in caps:
+					playerPool.append(p)
+						
+		# Switch off picking until the teams are all full
+		await client.change_presence(game=discord.Game(name='Team Selection'))
+		
+		# if teams are not already full:
+		if(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
 			if(len(players) < sizeOfGame):
 				# someone has left the pug
 				await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
 				await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
 				return False 
 
-			# Red captain gets two picks first round so start with red
-			await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
-			
+			await send_emb_message_to_channel(0x00ff00, caps[0].mention + " vs " + caps[1].mention, msg)
+			# Blue captain picks first
+			await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
 			if(len(playerPool) > 1):
 				# only make the captain pick if they have a choice
-				await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+				await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
 			else:
-				blueTeam.append(playerPool[0])
-				await send_emb_message_to_channel_blue(playerPool[0].mention + " has been added to the team", msg)
+				redTeam.append(playerPool[0])
+				await send_emb_message_to_channel_red(playerPool[0].mention + " has been added to the team", msg)
+			while(len(redTeam) < sizeOfTeams and len(blueTeam) < sizeOfTeams):
+				if(len(players) < sizeOfGame):
+					# someone has left the pug
+					await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
+					await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+					return False 
 
+				# Red captain gets two picks first round so start with red
+				await red_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+				
+				if(len(playerPool) > 1):
+					# only make the captain pick if they have a choice
+					await blue_team_picks(blueTeam, redTeam, caps, playerPool, msg)
+				else:
+					blueTeam.append(playerPool[0])
+					await send_emb_message_to_channel_blue(playerPool[0].mention + " has been added to the team", msg)
+		# both teams are full
+		# verify everything looks good		
+		await send_emb_message_to_channel_blue('\n'.join([p.mention for p in blueTeam]), msg)	# Blue Team information				
+		await send_emb_message_to_channel_red('\n'.join([p.mention for p in redTeam]), msg)		# Red Team information	
+		await send_emb_message_to_channel(0xffa500, starter[0].mention + " these are the teams\n\nReply with !accept to accept them or with !repick and we can choose again", msg)
+		didChoose = False
+		while not didChoose:
+			# check for advanced filtering
+			def check(msg):
+				if(msg.content.startswith(cmdprefix + 'accept') or msg.content.startswith(cmdprefix + 'repick')): return True
+				return False
+			inputobj = await client.wait_for_message(timeout=durationOfCheckin, author=starter[0], check=check)
+			# wait_for_message returns 'None' if asyncio.TimeoutError thrown
+			if(inputobj != None): 
+				didChoose = True
+				# switch on choice
+				if(inputobj.content.startswith(cmdprefix + "accept")):
+					adminApproves = True
+				elif(inputobj.content.startswith(cmdprefix + "repick")):
+					# reset so we can pick new teams
+					caps = []
+					redTeam = []
+					blueTeam = []
+					playerPool = []
+					adminApproves = False
+			else: 
+				didChoose = False
+				await send_emb_message_to_channel(0xff0000, starter[0].mention + " please make a selection:\n\n!accept to **accept** the teams\n\n!repick to discard these teams and **repick** new ones", msg)
+	# adminApproves and everything is set
+	
 	# pm users and message server with game information
 	await send_information(blueTeam, redTeam, chosenMap, msg, serverID, serverPW)
 	
@@ -403,7 +434,7 @@ async def pick_captains(msg, caps, players, blueTeam, redTeam):
 	await client.change_presence(game=discord.Game(name='Selecting Captains'))
 	
 	# human readable Usage message to channel
-	emb = (discord.Embed(description=game_starter.mention + " please select one of the options below", colour=0x00ff00))
+	emb = (discord.Embed(description=game_starter.mention + " please select one of the options below", colour=0xffa500))
 	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
 	emb.add_field(name=cmdprefix + 'captains', value='to manually select the captains', inline=False)
 	emb.add_field(name=cmdprefix + 'manual', value='to manually select both teams', inline=False)
