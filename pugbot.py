@@ -23,6 +23,7 @@ blueteamChannelID = config.blueteamChannelID
 cmdprefix = config.cmdprefix
 discordServerID = config.discordServerID
 dbtoken = config.dbtoken
+durationOfCheckin = config.durationOfCheckin
 durationOfMapVote = config.durationOfMapVote
 durationOfReadyUp = config.durationOfReadyUp
 durationOfVeto = config.durationOfVeto
@@ -90,7 +91,19 @@ async def check_for_afk_players(msg, players, readyupChannelID):
 			if(p not in ready_users):				
 				afk_players.append(p)	# add to missing players list
 	return afk_players
-
+	
+# check that the admin who started the game is still here
+async def check_for_afk_admin(msg, game_starter):
+	# check for advanced filtering
+	def check(msg):
+		return msg.content.startswith(cmdprefix + 'here')
+	inputobj = await client.wait_for_message(timeout=durationOfCheckin, author=game_starter, check=check)
+	# wait_for_message returns 'None' if asyncio.TimeoutError thrown
+	if(inputobj != None): # game_starter did !checkin
+		return True
+	else: # game_starter did not !checkin
+		return False
+		
 async def check_for_map_nominations(mapPicks, msg, sizeOfGame, sizeOfMapPool, pickupRunning, players):
 	while(len(mapPicks) < sizeOfMapPool and pickupRunning and len(players) == sizeOfGame):
 		# need to build the list of maps
@@ -200,8 +213,34 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	blueTeam = []
 	playerPool = []
 	
-	# Begin the pickup
 	await send_emb_message_to_channel(0x00ff00, "All players are confirmed ready!", msg)
+
+	# Verifying admin status if they have not already confirmed ready
+	if starter[0] not in players:
+		await send_emb_message_to_channel(0xff0000, "Verifying that we have an admin\n\n" + starter[0].mention + " please reply with !here so we can proceed", msg)
+		adminPresent = False
+		while not adminPresent:
+			adminPresent = await check_for_afk_admin(msg, starter[0])
+			if not adminPresent:
+				# do we have an admin in the pool we can give the pickup to
+				for p in players:
+					if(await user_has_access(p)):
+						# admin found : transfering pickup
+						await send_emb_message_to_channel(0xff0000, starter[0].mention + " seems to be missing\n\nTransfering the game to " + p.mention, msg)
+						starter[0] = p
+						adminPresent = True
+						break # no need to find another admin
+				if not adminPresent:
+					# try to private message the game_starter
+					emb = (discord.Embed(description="You did not reply with !here and your pickup has been put on hold", colour=0xff0000))
+					emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
+					await client.send_message(starter[0], embed=emb )
+					# ping all admins to see if someone can take over
+					role = discord.utils.get(msg.server.roles, id=adminRoleID)
+					await send_emb_message_to_channel(0xff0000, role.mention + " the admin who started this pickup seems to be missing. !transfer and save the pickup", msg)
+	# adminPresent == True
+	
+# Begin the pickup
 	
 	# Map Selection
 	await client.change_presence(game=discord.Game(name='Map Selection'))
@@ -242,7 +281,8 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 				return True
 		elif(pick_captains_counter > 2):
 			# game_starter is afk ... pug will be ended
-			await send_emb_message_to_channel(0xff0000, "This pickup has been abandoned by the admin and will now be ended. Someone who is here will need to start a new one", msg)
+			role = discord.utils.get(msg.server.roles, id=poolRoleID)
+			await send_emb_message_to_channel(0xff0000, "This pickup has been abandoned by the admin and will now be ended\n\n" role.mention + " someone who is here, will need to start a new one", msg)
 			await client.change_presence(game=discord.Game(name=' '))
 			return True
 		else:
