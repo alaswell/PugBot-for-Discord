@@ -1069,7 +1069,7 @@ async def on_message(msg):
 	if(msg.server is None): return	# only listen for specific commands via direct message
 	
 	# Add - Adds the msg.author to the current pickup
-	if(msg.content.startswith(cmdprefix + "add")):
+	if(msg.content.startswith(cmdprefix + "add") and not msg.content.startswith(cmdprefix + "addalias") and not msg.content.startswith(cmdprefix + "addmap") and not msg.content.startswith(cmdprefix + "addserver")):
 		# there must be an active pickup
 		if(pickupRunning):
 			# one can only add if:
