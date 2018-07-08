@@ -837,6 +837,11 @@ async def on_message(msg):
 	global pickupRunning
 	global players
 	global randomTeams
+	global rcon
+	global rconPW	
+	global serverID
+	global serverPW
+	global server_address
 	global sizeOfGame
 	global sizeOfTeams
 	global selectionMode
@@ -872,12 +877,72 @@ async def on_message(msg):
 					continue
 				break
 				
-	if(msg.channel.id != singleChannelID): return	# only listen the the specified channel
-	
+	if(msg.channel.id != singleChannelID and msg.server is not None): return	# only listen the the specified channel
+			
 	if msg.author == client.user: return			# talking to yourself isn't cool...even for bots
+
+	# begin private message commands
+	
+	# PM's have None as server and return a User from message.author
+	server = client.get_server(id=discordServerID)
+	member = server.get_member(msg.author.id)
+	
+	# Add Server - Adds a new server (read: row) to the servers collection (read: table) in the MongoDB 	
+	if(msg.content.startswith(cmdprefix + "addserver")):		
+		# admin command
+		if (await user_has_access(member)):
+			message = msg.content.split()
+			if(len(message) > 4):
+				# add the new server the MongoDB
+				name = message[1]
+				passwd = message[2]
+				rcon = message[3]
+				serverid = message[4]
+				# create the MongoDB client and connect to the database
+				dbclient = pymongo.MongoClient(dbtoken)
+				db = dbclient.FortressForever
+	
+				# Mongo uses documents (key:value pairs) to represent rows of data
+				db.servers.insert([	{ 'names': [name], 'passwd': passwd, 'rcon': rcon, 'serverid': serverid } ])
+
+				# verify we have done this correctly
+				last = db.servers.find_one({'names':name})
+
+				await send_emb_message_to_user(0x00ff00, "New server has been added to the list\n\n" + str(last), msg)
+			else:
+				await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !addserver <name> <password> <rcon_password> <###.###.###.###:27015>\n\nPlease try again", msg)
+		else:
+			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
+	
+	# Delete Server - Removes an existing server (read: row) from the servers collection (read: table) in the MongoDB 	
+	if(msg.content.startswith(cmdprefix + "delserver")):		
+		# admin command
+		if (await user_has_access(member)):
+			# could make this more broad but I prefer to force exactness here
+			message = msg.content.split()
+			if(len(message) > 4):
+				# add the new server the MongoDB
+				name = message[1]
+				passwd = message[2]
+				rcon = message[3]
+				serverid = message[4]
+				# create the MongoDB client and connect to the database
+				dbclient = pymongo.MongoClient(dbtoken)
+				db = dbclient.FortressForever
+
+				# Mongo uses documents (key:value pairs) to represent rows of data
+				removed = db.servers.remove([	{ 'names': [name], 'passwd': passwd, 'rcon': rcon, 'serverid': serverid } ])
+
+				await send_emb_message_to_user(0x00ff00, "Server has been added removed from the database\n\n" + str(removed), msg)
+			else:
+				await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !delserver <name> <password> <rcon_password> <###.###.###.###:27015>\n\nYour entries must match exactly. Please try again", msg)
+		else:
+			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
+			
+	if(msg.server is None): return	# only listen for specific commands via direct message
 	
 	# Add - Adds the msg.author to the current pickup
-	if(msg.content.startswith(cmdprefix + "add")):
+	if(msg.content.startswith(cmdprefix + "add") and not msg.content.startswith(cmdprefix + "addserver")):
 		# there must be an active pickup
 		if(pickupRunning):
 			# one can only add if:
@@ -918,7 +983,7 @@ async def on_message(msg):
 					voteForMaps = True
 		else:
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
-
+					
 	# Admin - Displays the admin of the current pickup
 	if(msg.content.startswith(cmdprefix + "admin")):
 		# there must be an active pickup
@@ -926,7 +991,7 @@ async def on_message(msg):
 			await send_emb_message_to_channel(0x00ff00, "Game Admin is: " + starter[0].mention, msg)
 		else:
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
-			
+		
 	# Changelevel - Change the map in the server using the RCON commange changelevel
 	if (msg.content.startswith(cmdprefix + "changelevel ") or msg.content.startswith(cmdprefix + "changemap ")):
 		# admin command
@@ -977,7 +1042,7 @@ async def on_message(msg):
 		emb.add_field(name=cmdprefix + 'teams', value='Displays current pickup info', inline=False)
 		await client.send_message(msg.author, embed=emb)
 		if (await user_has_access(msg.author)):
-			emb = (discord.Embed(title="Admin Commands:", description="These commands are accessible only by the game admins", colour=0x00AE86))
+			emb = (discord.Embed(title="Admin Commands:", description="These commands are accessible only by the game admins", colour=0xffa500))
 			emb.set_author(name=client.user.name, icon_url=client.user.default_avatar_url)
 			emb.add_field(name=cmdprefix + 'changelevel <mapname>', value='Changes the map in the server via RCON', inline=False)
 			emb.add_field(name=cmdprefix + 'end', value='End the current pickup (even if you did not start it)', inline=False)
@@ -986,8 +1051,14 @@ async def on_message(msg):
 			emb.add_field(name=cmdprefix + 'remove @player', value='Removes the player you specified from the pickup', inline=False)
 			emb.add_field(name=cmdprefix + 'removenom <mapname>', value='Removes the map nomination you specified from the pickup', inline=False)
 			emb.add_field(name=cmdprefix + 'setmode <random/vote>', value='Change the way the map is chosen, options are random or vote (Game Starter Only)', inline=False)
+			emb.add_field(name=cmdprefix + 'setserver <name/server> <alias/serverID>', value='Change the server the pickup will be played on (Game Starter Only)', inline=False)
 			emb.add_field(name=cmdprefix + 'transfer @admin', value='Give your pickup to another admin (Game Starter) or take possesion of another admins pickup (All Other Admins)', inline=False)
 			emb.add_field(name=cmdprefix + 'veto', value='Stop another admin from using !end or !transfer on your pickup', inline=False)
+			await client.send_message(msg.author, embed=emb)
+			# Private Message Commands
+			emb = (discord.Embed(title="Private Message Commands:", description="These admin commands further require they be sent as a direct message (read: here and not in the channel)\n\n*Pay special **attention** as these will directly modify the Mongo Database*", colour=0xff0000))			
+			emb.add_field(name=cmdprefix + 'addserver <name> <password> <rcon_password> <###.###.###.###:27015>', value='Adds a new server (read: row) to the servers collection (read: table) in the MongoDB', inline=False)
+			emb.add_field(name=cmdprefix + 'delserver <name> <password> <rcon_password> <###.###.###.###:27015>', value='Deletes an existing server (read: row) from the servers collection (read: table) in the MongoDB\n\nYour entries must match **exactly**', inline=False)
 			await client.send_message(msg.author, embed=emb)
 			
 	# Demos - Provides the msg.author with a link to the currently stored demos via direct message
@@ -1306,7 +1377,51 @@ async def on_message(msg):
 				await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
 		else:
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)	
-			
+		
+	# Setserver - Change the server the pickup will be played on 
+	if (msg.content.startswith(cmdprefix + "setserver")):
+		# there must be an active pickup
+		if(pickupRunning):
+			# admin command
+			if (await user_has_access(msg.author)):
+				# make sure this admin owns this pickup
+				if(starter[0] == msg.author):
+					message = msg.content.split()
+					if(len(message) > 2):
+						# switch on flag and search the MongoDB for a document that contains that op:data
+						op = message[1]
+						data = message[2]
+
+						# create the MongoDB client and connect to the database
+						dbclient = pymongo.MongoClient(dbtoken)
+						# switch on op
+						if(op == "name"):
+							cursor = dbclient.FortressForever.servers.find( { 'names' : data } )
+						elif(op == "server"):
+							cursor = dbclient.FortressForever.servers.find( { 'serverid' : data } )
+						if cursor.count() > 0:
+							for doc in cursor:
+								# doc is a dict
+								serverID = doc['serverid']
+								serverPW = doc['passwd']
+								rconPW = doc['rcon']
+								server_address = (serverID[:-6], 27015)
+								# Setup an new RCON connection 
+								rcon = valve.rcon.RCON(server_address, rconPW)
+								rcon.connect()
+								rcon.authenticate()
+								await send_emb_message_to_user(0x00ff00, msg.author.mention + " changing server\n\nServerID: " + serverID + "\n\nServer Address: " + str(server_address) + "\n\nPassword: " + serverPW + "\n\nRCON: " + rconPW, msg)
+						else:
+							await send_emb_message_to_user(0xff0000, msg.author.mention + " I am sorry, I did not find a server matching " + op + " = " + data + "\n\nPlease try again", msg)
+					else:
+						await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !setserver <name/server> <alias/serverID>\n\nPlease try again", msg)
+				else:
+					await send_emb_message_to_channel(0xff0000, msg.author.mention + " sorry, this pickup does not belong to you, it belongs to " + starter[0].mention, msg)
+			else:
+				await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
+		else:
+			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)	
+				
 	# Sendinfo - Sends msg.author the server IP and password via direct message
 	if(msg.content.startswith(cmdprefix + "sendinfo")): await send_emb_message_to_user(0x00ff00, "connect " + serverID + " " + serverPW, msg)
 		
