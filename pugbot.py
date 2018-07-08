@@ -758,6 +758,10 @@ async def save_last_game_info(blueTeam, redTeam, lastBlueTeam, lastRedTeam, last
 		lastBlueTeam.append(p.name)
 	lasttime = time.time()
 	
+	# create the MongoDB client and connect to the database
+	dbclient = pymongo.MongoClient(dbtoken)
+	db = dbclient.FortressForever
+	
 	# modify the MongoDB document to contain the most recent pickup information
 	updated = db.pickups.update_one({'last':True}, 
 									{'$set': {'blueteam':lastBlueTeam,
