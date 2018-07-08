@@ -9,6 +9,7 @@ cmdprefix = '!'
 token = 'PLACE TOKEN HERE'
 
 # Default times 
+durationOfCheckin = 45					# duration in seconds the admin has to checkin before pinging others to takeover
 durationOfMapVote = 45					# duration in seconds the users have to vote on maps 
 durationOfReadyUp = 180					# duration in seconds the users have to move to the channel and "ready-up"
 durationOfVeto = 60						# duration in seconds the game_starter has to veto a command
@@ -20,8 +21,9 @@ sizeOfMapPool = 3					  	# how many maps to nominate
 IDLE_TIME_IN_SECONDS = 180				# how long to wait for replies after a pickup has begun
 
 # Discord Server Information
-adminRoleMention = '@PUG Admin'			    # string literal of the role users can ping to request a pickup
 adminRoleID = '123456789987654321'		    # ID of the role the bot uses to check for admin access
+adminRoleMention = '@PUG Admin'			    # string literal of the role users can ping to request a pickup
+discordServerID = '402929975843487754'		# ID of the discord server 
 playerRoleID = '123456789987654321'		    # ID of the role users need to access the pickup channel 
 poolRoleID = '123456789987654321'		    # ID of the role users are moved into once the pickup begins
 redteamChannelID = '123456789987654321'		# ID of the channel to move the Red Team's Players into once a pickup begins
@@ -29,7 +31,7 @@ blueteamChannelID = '123456789987654321'	# ID of the channel to move the Blue Te
 readyupChannelID = '123456789987654321'		# ID of the channel users must move into to signify they are ready for the pickup
 requestChannelID = '123456789987654321' 	# ID of the channel where users can request access to the pickup channel
 singleChannelID = '123456789987654321' 		# ID of the channel the bot will listen to for pickup commands
-discordServerID = '123456789987654321'		# ID of the discord server 
+timeoutRoleID = '456680190572232704'		# ID of the role users are moved into if they are in a timeout or ban
 
 # Game Server Information
 server_address = ("255.255.255.001", 27015)	
