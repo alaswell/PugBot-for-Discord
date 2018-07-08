@@ -6,6 +6,7 @@
 # Imports
 from collections import OrderedDict
 from datetime import timedelta
+from pymongo.collection import ReturnDocument
 from random import shuffle
 from random import choice
 import asyncio
@@ -27,8 +28,6 @@ durationOfCheckin = config.durationOfCheckin
 durationOfMapVote = config.durationOfMapVote
 durationOfReadyUp = config.durationOfReadyUp
 durationOfVeto = config.durationOfVeto
-maps = config.maps
-mapprefix = config.mapprefix
 playerRoleID = config.playerRoleID
 poolRoleID = config.poolRoleID
 quotes = config.quotes
@@ -410,19 +409,64 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 		
 	return True
 
+# Lists all of the maps in the MongoDB table : maps
+async def list_all_the_maps(msg):
+	# create the MongoDB client and connect to the database
+	dbclient = pymongo.MongoClient(dbtoken)
+	# find will return all documents in the maps collection		
+	foundmaps = dbclient.FortressForever.maps.find( { } )	
+	# convert to a list so we can index into it
+	maps = list(foundmaps)
+	
+	# with the aliases, this message gets big quickly so we    
+	# need to chunk up the maplist into sections to accomidate 
+	
+					## Part I   ##
+	emb = (discord.Embed(description = "Currently, you may nominate any of the following maps:", colour=0xffa500))
+	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)	
+	for map in maps[:20]:
+		emb.add_field(name=str(map['name']), value=str(map['aliases']), inline=False)
+	await client.send_message(msg.author, embed=emb )
+					## Part II  ##
+	emb = (discord.Embed(description = "", colour=0xffa500))
+	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
+	for map in maps[20:40]:
+		emb.add_field(name=str(map['name']), value=str(map['aliases']), inline=False)
+	await client.send_message(msg.author, embed=emb )
+					## Part III ##
+	emb = (discord.Embed(description = "", colour=0xffa500))
+	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
+	for map in maps[40:60]:
+		emb.add_field(name=str(map['name']), value=str(map['aliases']), inline=False)
+	await client.send_message(msg.author, embed=emb )
+					## Part IV  ##
+	emb = (discord.Embed(description = "", colour=0xffa500))
+	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
+	for map in maps[60:80]:
+		emb.add_field(name=str(map['name']), value=str(map['aliases']), inline=False)
+	await client.send_message(msg.author, embed=emb )
+					## Part V  ##
+	emb = (discord.Embed(description = "", colour=0xffa500))
+	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
+	for map in maps[80:100]:
+		emb.add_field(name=str(map['name']), value=str(map['aliases']), inline=False)
+	await client.send_message(msg.author, embed=emb )
+					## Part VI ##
+	emb = (discord.Embed(description = "", colour=0xffa500))
+	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
+	for map in maps[100:]:
+		emb.add_field(name=str(map['name']), value=str(map['aliases']), inline=False)
+	await client.send_message(msg.author, embed=emb )
+	
 # Check to see if the map nominated is an alias
-async def mapname_is_alias(msg, mpname):
-	if(len(mpname) < 4): 
-		await send_emb_message_to_channel(0xff0000, msg.author.mention + " that alias is not long enough. You must use at least 4-letter words for the mapname", msg)
-		return "TOOSHORT"
-	for m in maps:
-		mstr = str(m)
-		# trim off the 'FF_' if it exists
-		if(mstr.startswith(mapprefix)): 
-			mstr = mstr[3:]
-		# now check if the mapname matches
-		if(mstr.startswith(mpname)): 
-			return m
+async def mapname_is_valid(msg, mpname):
+	# create the MongoDB client and connect to the database
+	dbclient = pymongo.MongoClient(dbtoken)
+	
+	# check in name
+	cursor = dbclient.FortressForever.maps.find( { "$or":[{'name': mpname}, {'name': "ff_" + mpname}, {"aliases":mpname}] } )
+	for map in cursor:
+		return map['name']
 	return "INVALID"
 		
 # wait until the game starter makes a decision				
@@ -891,6 +935,32 @@ async def on_message(msg):
 	server = client.get_server(id=discordServerID)
 	member = server.get_member(msg.author.id)
 	
+	# Add Alias - Adds a new alias to an existing map (read: row) to the maps collection (read: table) in the MongoDB 	
+	if(msg.content.startswith(cmdprefix + "addalias") or msg.content.startswith(cmdprefix + "updatemap")):		
+		# admin command
+		if (await user_has_access(member)):
+			message = msg.content.split()
+			if(len(message) > 2):
+				mpname = message[1]
+				# get the new alaises
+				aliases = []
+				for alias in message[2:]:
+					aliases.append(alias)
+				# create the MongoDB client and connect to the database
+				dbclient = pymongo.MongoClient(dbtoken)
+				# first need to get the existing map and all of it's fields
+				updated = dbclient.FortressForever.maps.find_one_and_update(filter={},query={ "$or":[{'name': mpname}, {'name': "ff_" + mpname}, {"aliases":mpname}] },
+																		update={"$addToSet": {'aliases': { "$each": aliases } } },
+																		return_document=ReturnDocument.AFTER)
+				if(updated):
+					await send_emb_message_to_user(0x00ff00, "Map has been updated in the database\n\n" + str(updated['name']) + "\n\nAliases: " + str(updated['aliases']), msg)
+				else:
+					await send_emb_message_to_user(0xff0000, "That map does not exist in the database. Did you mean to !addmap?", msg)
+			else:
+				await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !addalias (!updatemap) <mapname_or_aliais> <**newalias1**> <**newalias2**> ... <**newaliasN**>\n\nPlease try again", msg)
+		else:
+			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
+			
 	# Add Map - Adds a new map (read: row) to the maps collection (read: table) in the MongoDB 	
 	if(msg.content.startswith(cmdprefix + "addmap")):		
 		# admin command
@@ -914,7 +984,7 @@ async def on_message(msg):
 
 					await send_emb_message_to_user(0x00ff00, "New map has been added to the database\n\n" + str(last), msg)
 				else:
-					await send_emb_message_to_user(0x00ff00, "That map already exists in the database. Did you mean to !updatemap?", msg)
+					await send_emb_message_to_user(0xff0000, "That map already exists in the database. Did you mean to !updatemap?", msg)
 			else:
 				await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !addmap <name> <alias1> <alias2> ... <alias##>\n\nPlease try again", msg)
 		else:
@@ -999,7 +1069,7 @@ async def on_message(msg):
 	if(msg.server is None): return	# only listen for specific commands via direct message
 	
 	# Add - Adds the msg.author to the current pickup
-	if(msg.content.startswith(cmdprefix + "add") and not msg.content.startswith(cmdprefix + "addserver") and not msg.content.startswith(cmdprefix + "addmap")):
+	if(msg.content.startswith(cmdprefix + "add")):
 		# there must be an active pickup
 		if(pickupRunning):
 			# one can only add if:
@@ -1056,21 +1126,18 @@ async def on_message(msg):
 			message = msg.content.split()
 			# make sure the user provided a map
 			if(len(message) > 1):
-				# check to see if the provided map is an alias
-				atom = await mapname_is_alias(msg, message[1])
-				if(atom == "TOOSHORT"): return
-				elif(atom == "INVALID"): atom = message[1]
-				# only try to change to valid maps
-				if(atom in maps):
+				# check to see if the provided map is in the database
+				atom = await mapname_is_valid(msg, message[1])
+				if(atom != "INVALID"): 
 					# change the map in the server to the provided map
 					try:
 						rcon.execute('changelevel ' + atom)
 					except Exception:
 						pass
-					await send_emb_message_to_channel(0xff0000, msg.author.mention + " the map has been changed to " + atom, msg)						
+					await send_emb_message_to_channel(0x00ff00, msg.author.mention + " the map has been changed to " + atom, msg)						
 				else:
 					await send_emb_message_to_channel(0xff0000, msg.author.mention + " that map is not in my !maplist. Please make another selection", msg)
-					await send_emb_message_to_user(0x00ff00, "Currently, you may nominate any of the following maps:\n" + "\n".join(map(str, maps)), msg)
+					await list_all_the_maps(msg)
 			else:
 				await send_emb_message_to_user(0xff0000, msg.author.mention + " you must provide a mapname. " + cmdprefix + "changemap <mapname>", msg)
 		else:
@@ -1114,10 +1181,12 @@ async def on_message(msg):
 			await client.send_message(msg.author, embed=emb)
 			# Private Message Commands
 			emb = (discord.Embed(title="Private Message Commands:", description="These admin commands further require they be sent as a direct message (read: here and not in the channel)\n\n*Pay special **attention** as these will directly modify the Mongo Database*", colour=0xff0000))			
+			emb.add_field(name=cmdprefix + 'addalias <mapname_or_aliais> <**newalias1**> <**newalias2**> ... <**newaliasN**>', value='Adds new alias(es) to an existing map (read: row) to the maps collection (read: table) in the MongoDB', inline=False)
 			emb.add_field(name=cmdprefix + 'addmap <name> <alias1> <alias2> ... <alias##>', value='Adds a new map (read: row) to the maps collection (read: table) in the MongoDB\n\nAliases are optional', inline=False)
 			emb.add_field(name=cmdprefix + 'addserver <name> <password> <rcon_password> <###.###.###.###:27015>', value='Adds a new server (read: row) to the servers collection (read: table) in the MongoDB', inline=False)
 			# emb.add_field(name=cmdprefix + 'delmap <name>', value='Deletes an existing map (read: row) from the maps collection (read: table) in the MongoDB', inline=False)
 			# emb.add_field(name=cmdprefix + 'delserver <name> <password> <rcon_password> <###.###.###.###:27015>', value='Deletes an existing server (read: row) from the servers collection (read: table) in the MongoDB\n\nYour entries must match **exactly**', inline=False)
+			emb.add_field(name=cmdprefix + 'updatemap <mapname_or_aliais> <**newalias1**> <**newalias2**> ... <**newaliasN**>', value='Adds new alias(es) to an existing map (read: row) to the maps collection (read: table) in the MongoDB', inline=False)
 			await client.send_message(msg.author, embed=emb)
 			
 	# Demos - Provides the msg.author with a link to the currently stored demos via direct message
@@ -1214,8 +1283,9 @@ async def on_message(msg):
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you cannot use this command, there is no pickup running right now. Use " + adminRoleMention + " to request an admin start one for you", msg)
 			
 	# Maplist - Provides the msg.author with a list of all the maps that are available for nomination via direct message
-	if (msg.content.startswith(cmdprefix + "maplist") or msg.content.startswith(cmdprefix + "listmaps")): await send_emb_message_to_user(0x00ff00, "Currently, you may nominate any of the following maps:\n" + "\n".join(map(str, maps)), msg)
-			
+	if (msg.content.startswith(cmdprefix + "maplist") or msg.content.startswith(cmdprefix + "listmaps")): 
+		await list_all_the_maps(msg)		
+		
 	# Nominate - Nominate the specified map
 	if(msg.content.startswith(cmdprefix + "nominate ")):
 		# there must be an active pickup
@@ -1229,12 +1299,9 @@ async def on_message(msg):
 					message = msg.content.split()
 					# make sure the user provided a map
 					if(len(message) > 1):
-						# check to see if the provided map is an alias
-						atom = await mapname_is_alias(msg, message[1])
-						if(atom == "TOOSHORT"): return
-						elif(atom == "INVALID"): atom = message[1]
-						# only allow maps that exist on server and only put in list once
-						if(atom in maps):
+						# check to see if the provided map is valid
+						atom = await mapname_is_valid(msg, message[1])
+						if(atom != "INVALID"): 
 							# check to see if someone else noimated this map 
 							for a, mp in mapPicks.items():
 								if(atom == str(mp)):
@@ -1257,7 +1324,7 @@ async def on_message(msg):
 								await client.send_message(msg.channel, embed=emb )							
 						else:
 							await send_emb_message_to_channel(0xff0000, msg.author.mention + " that map is not in my !maplist. Please make another selection", msg)
-							await send_emb_message_to_user(0x00ff00, "Currently, you may nominate any of the following maps:\n" + "\n".join(map(str, maps)), msg)
+							await list_all_the_maps(msg)
 					else:
 						await send_emb_message_to_user(0xff0000, msg.author.mention + " you must provide a mapname. " + cmdprefix + "nominate <mapname>", msg)
 				else:
@@ -1382,11 +1449,8 @@ async def on_message(msg):
 					# make sure the user provided a map
 					if(len(message) > 1):
 						# check to see if the provided map is an alias
-						atom = await mapname_is_alias(msg, message[1])
-						if(atom == "TOOSHORT"): return # mapname_is_alias handles messaging
-						elif(atom == "INVALID"): atom = message[1]
-						# only allow maps that exist on server and only put in list once
-						if(atom in maps):
+						atom = await mapname_is_valid(msg, message[1])
+						if(atom != "INVALID"):
 							# check to see if someone has noimated this map 
 							for author, mp in mapPicks.items():
 								if(atom == str(mp)):
