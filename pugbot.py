@@ -887,6 +887,35 @@ async def on_message(msg):
 	server = client.get_server(id=discordServerID)
 	member = server.get_member(msg.author.id)
 	
+	# Add Map - Adds a new map (read: row) to the maps collection (read: table) in the MongoDB 	
+	if(msg.content.startswith(cmdprefix + "addmap")):		
+		# admin command
+		if (await user_has_access(member)):
+			message = msg.content.split()
+			if(len(message) > 1):
+				# add the new map the MongoDB
+				name = message[1]
+				aliases = []
+				for alias in message[2:]:
+					aliases.append(alias)
+				# create the MongoDB client and connect to the database
+				dbclient = pymongo.MongoClient(dbtoken)
+				cursor = dbclient.FortressForever.maps.find( { 'name' : name } )
+				if cursor.count() == 0:
+					# Mongo uses documents (key:value pairs) to represent rows of data
+					dbclient.FortressForever.maps.insert([	{ 'name': name, 'aliases': aliases } ])
+
+					# verify we have done this correctly
+					last = dbclient.FortressForever.maps.find_one({'name':name})
+
+					await send_emb_message_to_user(0x00ff00, "New map has been added to the database\n\n" + str(last), msg)
+				else:
+					await send_emb_message_to_user(0x00ff00, "That map already exists in the database. Did you mean to !updatemap?", msg)
+			else:
+				await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !addmap <name> <alias1> <alias2> ... <alias##>\n\nPlease try again", msg)
+		else:
+			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
+			
 	# Add Server - Adds a new server (read: row) to the servers collection (read: table) in the MongoDB 	
 	if(msg.content.startswith(cmdprefix + "addserver")):		
 		# admin command
@@ -908,41 +937,65 @@ async def on_message(msg):
 				# verify we have done this correctly
 				last = db.servers.find_one({'names':name})
 
-				await send_emb_message_to_user(0x00ff00, "New server has been added to the list\n\n" + str(last), msg)
+				await send_emb_message_to_user(0x00ff00, "New server has been added to the database\n\n" + str(last), msg)
 			else:
 				await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !addserver <name> <password> <rcon_password> <###.###.###.###:27015>\n\nPlease try again", msg)
 		else:
 			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
 	
-	# Delete Server - Removes an existing server (read: row) from the servers collection (read: table) in the MongoDB 	
-	if(msg.content.startswith(cmdprefix + "delserver")):		
-		# admin command
-		if (await user_has_access(member)):
-			# could make this more broad but I prefer to force exactness here
-			message = msg.content.split()
-			if(len(message) > 4):
-				# add the new server the MongoDB
-				name = message[1]
-				passwd = message[2]
-				rcon = message[3]
-				serverid = message[4]
-				# create the MongoDB client and connect to the database
-				dbclient = pymongo.MongoClient(dbtoken)
-				db = dbclient.FortressForever
+	# # Delete Map - Removes an existing map (read: row) from the maps collection (read: table) in the MongoDB 	
+	# if(msg.content.startswith(cmdprefix + "delmap")):		
+		# # admin command
+		# if (await user_has_access(member)):
+			# # could make this more broad but I prefer to force exactness here
+			# message = msg.content.split()
+			# if(len(message) > 1):
+				# # add the new server the MongoDB
+				# name = message[1]
+				# # create the MongoDB client and connect to the database
+				# dbclient = pymongo.MongoClient(dbtoken)
+				
+				# # Mongo uses documents (key:value pairs) to represent rows of data
+				# removed = dbclient.FortressForever.maps.remove([ { 'name': name } ])
+				# if(len(removed) > 0):
+					# print(removed)
+					# await send_emb_message_to_user(0x00ff00, "Map has been removed from the database\n\n", msg)
+				# else:
+					# await send_emb_message_to_user(0xff0000, "I am sorry, but map was not found in the database\n\n", msg)
+			# else:
+				# await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !delserver <name> <password> <rcon_password> <###.###.###.###:27015>\n\nYour entries must match exactly. Please try again", msg)
+		# else:
+			# await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
+			
+	# # Delete Server - Removes an existing server (read: row) from the servers collection (read: table) in the MongoDB 	
+	# if(msg.content.startswith(cmdprefix + "delserver")):		
+		# # admin command
+		# if (await user_has_access(member)):
+			# # could make this more broad but I prefer to force exactness here
+			# message = msg.content.split()
+			# if(len(message) > 4):
+				# # add the new server the MongoDB
+				# name = message[1]
+				# passwd = message[2]
+				# rcon = message[3]
+				# serverid = message[4]
+				# # create the MongoDB client and connect to the database
+				# dbclient = pymongo.MongoClient(dbtoken)
+				# db = dbclient.FortressForever
 
-				# Mongo uses documents (key:value pairs) to represent rows of data
-				removed = db.servers.remove([	{ 'names': [name], 'passwd': passwd, 'rcon': rcon, 'serverid': serverid } ])
+				# # Mongo uses documents (key:value pairs) to represent rows of data
+				# removed = db.servers.remove([	{ 'names': [name], 'passwd': passwd, 'rcon': rcon, 'serverid': serverid } ])
 
-				await send_emb_message_to_user(0x00ff00, "Server has been added removed from the database\n\n" + str(removed), msg)
-			else:
-				await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !delserver <name> <password> <rcon_password> <###.###.###.###:27015>\n\nYour entries must match exactly. Please try again", msg)
-		else:
-			await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
+				# await send_emb_message_to_user(0x00ff00, "Server has been removed from the database\n\n" + str(removed), msg)
+			# else:
+				# await send_emb_message_to_user(0xff0000, msg.author.mention + "\n\nUsage: !delserver <name> <password> <rcon_password> <###.###.###.###:27015>\n\nYour entries must match exactly. Please try again", msg)
+		# else:
+			# await send_emb_message_to_channel(0xff0000, msg.author.mention + " you do not have access to this command", msg)
 			
 	if(msg.server is None): return	# only listen for specific commands via direct message
 	
 	# Add - Adds the msg.author to the current pickup
-	if(msg.content.startswith(cmdprefix + "add") and not msg.content.startswith(cmdprefix + "addserver")):
+	if(msg.content.startswith(cmdprefix + "add") and not msg.content.startswith(cmdprefix + "addserver") and not msg.content.startswith(cmdprefix + "addmap")):
 		# there must be an active pickup
 		if(pickupRunning):
 			# one can only add if:
@@ -1057,8 +1110,10 @@ async def on_message(msg):
 			await client.send_message(msg.author, embed=emb)
 			# Private Message Commands
 			emb = (discord.Embed(title="Private Message Commands:", description="These admin commands further require they be sent as a direct message (read: here and not in the channel)\n\n*Pay special **attention** as these will directly modify the Mongo Database*", colour=0xff0000))			
+			emb.add_field(name=cmdprefix + 'addmap <name> <alias1> <alias2> ... <alias##>', value='Adds a new map (read: row) to the maps collection (read: table) in the MongoDB\n\nAliases are optional', inline=False)
 			emb.add_field(name=cmdprefix + 'addserver <name> <password> <rcon_password> <###.###.###.###:27015>', value='Adds a new server (read: row) to the servers collection (read: table) in the MongoDB', inline=False)
-			emb.add_field(name=cmdprefix + 'delserver <name> <password> <rcon_password> <###.###.###.###:27015>', value='Deletes an existing server (read: row) from the servers collection (read: table) in the MongoDB\n\nYour entries must match **exactly**', inline=False)
+			# emb.add_field(name=cmdprefix + 'delmap <name>', value='Deletes an existing map (read: row) from the maps collection (read: table) in the MongoDB', inline=False)
+			# emb.add_field(name=cmdprefix + 'delserver <name> <password> <rcon_password> <###.###.###.###:27015>', value='Deletes an existing server (read: row) from the servers collection (read: table) in the MongoDB\n\nYour entries must match **exactly**', inline=False)
 			await client.send_message(msg.author, embed=emb)
 			
 	# Demos - Provides the msg.author with a link to the currently stored demos via direct message
