@@ -204,7 +204,6 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	mapMode = True			# allow nominations until we have a full maplist
 	randomTeams = True		# if game starter does not change, will pick teams randomly from players list
 	selectionMode = True	# keep people from changing the queue once the game has begun
-	shuffle(players) 		# shuffle the player pool
 	
 	# lists for team selection
 	caps = []
@@ -246,6 +245,7 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	
 	# do we have the right amount of map nominations
 	await check_for_map_nominations(mapPicks, msg, sizeOfGame, sizeOfMapPool, pickupRunning, players)
+	mapMode = False			# no more nominations now
 	
 	# are we still full
 	if(len(players) < sizeOfGame):
@@ -253,9 +253,9 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 		await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", msg)
 		await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
 		return False 
-		
+			
 	# vote for maps
-	chosenMap = await  pick_map(lastMap, mapMode, msg, players, poolRoleID, sizeOfGame, sizeOfMapPool, voteForMaps)
+	chosenMap = await pick_map(lastMap, msg, players, poolRoleID, sizeOfGame, sizeOfMapPool, voteForMaps)
 	
 	# make sure we are still full
 	if(len(players) < sizeOfGame):
@@ -270,6 +270,7 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	while not adminApproves:
 		# loop until the game starter makes a decision
 		pick_captains_counter = 1	# tracks how many times the game_starter has been asked
+		shuffle(players) 			# shuffle the player pool
 		randomTeams = await pick_captains(msg, caps, players, blueTeam, redTeam)
 		while(len(caps) < 2):
 			if(len(players) < sizeOfGame):
@@ -403,9 +404,8 @@ async def go_go_gadget_pickup(mapMode, mapPicks, msg, selectionMode, starter, pi
 	# Save all the information for !last
 	await save_last_game_info(blueTeam, redTeam, lastBlueTeam, lastRedTeam, chosenMap)
 	
-	# schedule a background task to remove the players from the pool
-	# this is so we can still notify them all for a few minutes
-	client.loop.create_task(remove_everyone_from_pool_role(msg, redTeam, blueTeam, poolRoleID))
+	# remove the players from the pool
+	await remove_everyone_from_pool_role(msg, redTeam, blueTeam, poolRoleID)
 		
 	return True
 
@@ -639,7 +639,7 @@ async def pick_captains(msg, caps, players, blueTeam, redTeam):
 	else: #inputobj == None
 		return False	# timeout
 
-async def pick_map(lastMap, mapMode, msg, players, poolRoleID, sizeOfGame, sizeOfMapPool, voteForMaps):
+async def pick_map(lastMap, msg, players, poolRoleID, sizeOfGame, sizeOfMapPool, voteForMaps):
 # vote for maps or random
 	if(voteForMaps):
 		votelist = {}
@@ -665,11 +665,15 @@ async def pick_map(lastMap, mapMode, msg, players, poolRoleID, sizeOfGame, sizeO
 				def check(msg):
 					# only accept votes from members in the pool
 					# update the vote if they change it
-					if(poolRoleID in [r.id for r in msg.author.roles]):
-						for x in range(1,sizeOfMapPool+1):
-							if(msg.content == str(x)):
-								votelist.update({msg.author.name:x})
-						return True
+					try:
+						if(poolRoleID in [r.id for r in msg.author.roles]):
+							for x in range(1,sizeOfMapPool+1):
+								if(msg.content == str(x)):
+									votelist.update({msg.author.name:x})
+							return True
+					except Exception:
+						print(msg.author + ' (msg.author) | line 667 exception passed' + '\n'.join([p.mention for p in players]))
+						pass
 				# listen for votes, wait no more than 5 seconds between messages
 				# this forces the counter to increment more often (read: more messages to the channel)
 				await client.wait_for_message(timeout=FIVE_SECONDS, check=check)
@@ -722,7 +726,6 @@ async def pick_map(lastMap, mapMode, msg, players, poolRoleID, sizeOfGame, sizeO
 	
 	# reset for next pickup
 	lastMap = mappa
-	mapMode = False
 	return mappa
 	
 # BLUE TEAM PICKS
@@ -781,8 +784,6 @@ async def red_team_picks(blueTeam, redTeam, caps, players, msg):
 
 # remove the poolRoleID from all the players from the last pickup	
 async def remove_everyone_from_pool_role(msg, redTeam, blueTeam, poolRoleID):
-	# wait five minutes 
-	await asyncio.sleep(300)
 	# get the correct role
 	role = discord.utils.get(msg.server.roles, id=poolRoleID)
 	# remove from all users in both teams
@@ -852,11 +853,20 @@ async def send_information(blueTeam, redTeam, mappa, msg, serverID, serverPW):
 	blueTeamMention = []				
 	emb = (discord.Embed(title="steam://connect/" + serverID + "/" + serverPW, colour=0x00ff00))
 	emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
+	# try to message players server info
+	# not all players allow messages
+	# so pass that exception to get to everyone
 	for p in redTeam:
-		await client.send_message(p, embed=emb )
+		try:
+			await client.send_message(p, embed=emb )			
+		except Exception:
+			pass 
 		redTeamMention.append(p.mention)	# so we can mention all the members of the red team
 	for p in blueTeam:
-		await client.send_message(p, embed=emb )
+		try:
+			await client.send_message(p, embed=emb )			
+		except Exception:
+			pass
 		blueTeamMention.append(p.mention)	# so we can mention all the members of the blue team
 
 	# Display the game information
@@ -896,7 +906,6 @@ async def on_message(msg):
 	global starter
 	global starttime
 	global voteForMaps
-	
 	
 	# the bot handles authorizing access to the pickup channel
 	if msg.channel.id == requestChannelID: 
@@ -1238,6 +1247,9 @@ async def on_message(msg):
 		
 	# Last - Displays information about the last pickup that was played
 	if(msg.content.startswith(cmdprefix + "last")):
+		# create the MongoDB client and connect to the database
+		dbclient = pymongo.MongoClient(dbtoken)
+		db = dbclient.FortressForever
 		# get the last pickup information from the MongoDB
 		found = db.pickups.find_one({'last':True})
 		lastBlueTeam = found.get('blueteam')
@@ -1614,6 +1626,34 @@ async def on_message(msg):
 				except (discord.Forbidden, discord.HTTPException):
 					continue
 				break
+				
+# anytime someone "leaves server"
+@client.event
+async def on_member_remove(member):
+	global players
+	global mapPicks
+	channel = member.server.get_channel(singleChannelID)
+	role = discord.utils.get(member.server.roles, id=poolRoleID)
+	if(member in players):
+		players.remove(member)		# remove from players list
+		mapPicks.pop(member, None)	# remove this players nomination if they had one		
+		try:
+			await client.remove_roles(member, role)
+		except Exception:
+			pass
+		# send a pretty message to server
+		embstr = member.mention + " has left the server. Removing them from the pickup"
+		await client.change_presence(game=discord.Game(name='Pickup (' + str(len(players)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+		emb = (discord.Embed(description=embstr, colour=0xff0000))
+		emb.set_author(name=client.user.name, icon_url=client.user.avatar_url)
+		await client.send_message(channel, embed=emb )
+			
+# Print when ready
+@client.event
+async def on_ready():
+	print('Logged in as')
+	print(client.user.name)
+	print(client.user.id)
 
 # Run the bot
 client.run(token)
