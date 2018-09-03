@@ -879,7 +879,7 @@ async def pickup_is_running(context):
 # Select the RED_TEAM
 async def red_team_picks(caps, context, playerPool):
     global BLUE_TEAM, RED_TEAM, PLAYERS, server
-    await send_emb_message_to_channel(0x00ff00, caps[1].mention + " type @player to pick. Available players are:\n\n" + '\n'.join([p.mention for p in PLAYERS]), context)
+    await send_emb_message_to_channel(0x00ff00, caps[1].mention + " type @player to pick. Available players are:\n\n" + '\n'.join([p.mention for p in playerPool]), context)
 
     # check for a pick and catch it if they don't mention an available player
     while True:
