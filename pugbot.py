@@ -4,7 +4,7 @@
 #	PugBot-for-Discord by techlover1 https://github.com/techlover1/PugBot-for-Discord
 
 import asyncio
-import config_test as config
+import config
 from collections import OrderedDict
 from datetime import timedelta
 import discord
