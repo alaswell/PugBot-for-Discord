@@ -1020,6 +1020,7 @@ async def user_has_access(author):
 async def _add(context):
     global MAP_MODE, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, SELECTION_MODE, sizeOfGame, STARTER, VOTE_FOR_MAPS
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
+    if not await pickup_is_running(context): return  # there must be an active pickup
     # one can only add if:
     # 	they are not already added
     # 	we are not already selecting teams
@@ -1556,7 +1557,7 @@ async def _eight_ball(context):
 
 
 # Radicaldad
-@Bot.command(name='radicaldad', description="", brief="", pass_context=True)
+@Bot.command(name='radicaldad', description="", brief="Not for you", pass_context=True)
 async def _radicaldad(context):
     global MAP_MODE, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, SELECTION_MODE, sizeOfGame, STARTER, vipPlayerID, VOTE_FOR_MAPS
     # same as add but with the restriction on ID
