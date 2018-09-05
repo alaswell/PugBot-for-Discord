@@ -1501,33 +1501,30 @@ async def _players(context):
     if (await user_has_access(context.message.author)):
         # make sure this admin owns this pickup
         if (STARTER[0] == context.message.author):
-            if (SELECTION_MODE):
-                await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot change the team size once the pickup has begun", context)
+            message = context.message.content.split()
+            if (len(message) >= 1):
+                # make sure the msg.author is giving an integer value
+                try:
+                    sz = int(message[1])
+                    if (sz == 0):
+                        # zero players? Just end it then
+                        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot change to zero players, please use " + cmdprefix + "end instead", context)
+                    elif ((sz % 2) == 0):
+                        # even number
+                        if (sz < len(PLAYERS)):
+                            # do not lower sizes if more players have added already
+                            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " the player pool is too big to change to that value", context)
+                        else:
+                            sizeOfTeams = int(sz / 2)
+                            sizeOfGame = int(sz)
+                            await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " the size of the game has been changed to " + str(sz), context)
+                            await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+                    else: # odd number
+                        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " the size of the teams must be even", context)
+                except(ValueError):
+                    await send_emb_message_to_channel(0xff0000, context.message.author.mention + " " + message[1] + " is not a valid number. Use " + cmdprefix + "players #", context)
             else:
-                message = context.message.content.split()
-                if (len(message) == 1):
-                    await send_emb_message_to_channel(0xff0000, "You must provide a new size " + cmdprefix + "players numberOfPlayers", context)
-                else:
-                    # make sure the msg.author is giving an integer value
-                    try:
-                        sz = int(message[1])
-                        if (sz == 0):
-                            # zero players? Just end it then
-                            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot change to zero players, please use " + cmdprefix + "end instead", context)
-                        elif ((sz % 2) == 0):
-                            # even number
-                            if (sz < len(PLAYERS)):
-                                # do not lower sizes if more players have added already
-                                await send_emb_message_to_channel(0xff0000, context.message.author.mention + " the player pool is too big to change to that value", context)
-                            else:
-                                sizeOfTeams = int(sz / 2)
-                                sizeOfGame = int(sz)
-                                await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " the size of the game has been changed to " + str(sz), context)
-                                await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
-                        else: # odd number
-                            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " the size of the teams must be even", context)
-                    except(ValueError):
-                        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " " + message[1] + " is not a valid number. Use " + cmdprefix + "players #", context)
+                await send_emb_message_to_channel(0xff0000, "You must provide a new size " + cmdprefix + "players numberOfPlayers", context)
         else:
             await send_emb_message_to_channel(0xff0000, context.message.author.mention + " sorry, this pickup does not belong to you, it belongs to " + STARTER[0].mention, context)
     else:
