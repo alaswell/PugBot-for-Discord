@@ -1172,14 +1172,14 @@ async def _admin(context):
 
 
 # Ban
-@Bot.command(name='ban', description="Admin only command that bans a user from the channel for the period specified", brief="Ban a player", aliases=['ban_player', 'banplayer', 'timeout'], pass_context=True)
+@Bot.command(name='ban', description="Admin only command that bans a user from the channel for the period specified\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban", brief="Ban a player", aliases=['ban_player', 'banplayer', 'timeout'], pass_context=True)
 async def _ban(context):
-    global database, accessRole, timeoutRole
+    global database, accessRole, poolRole, timeoutRole
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     # admin command
     if (await user_has_access(context.message.author)):
         message = context.message.content.split()
-        if (len(message) > 3):
+        if (len(message) > 5):
             try:
                 banned = context.message.mentions[0]
                 if re.match('^[0-9]*$', message[2]):
@@ -1194,32 +1194,35 @@ async def _ban(context):
                     elif resolution == 'months':
                         length = int(length) * 2629740
                     else:
-                        await send_emb_message_to_channel(0x00ff00, str(resolution) + " is not a valid resolution, it must be either: hours, days, or months. Please try again\n\n" + cmdprefix + "ban @user length hours|days|months", context)
+                        await send_emb_message_to_channel(0x00ff00, str(resolution) + " is not a valid resolution, it must be either: hours, days, or months. Please try again\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban", context)
                         return
+
+                    reason = " ".join(message[4:])
 
                     # remove access to the channel
                     try:
                         await Bot.add_roles(banned, timeoutRole)
                         await asyncio.sleep(2)
                         await Bot.remove_roles(banned, accessRole)
+                        await Bot.remove_roles(banned, poolRole)
                     except (discord.Forbidden, discord.HTTPException):
                         pass
 
                     # Add this ban to the MongoDB
-                    query = database.banned.insert({'userid': banned.id, 'length': length, 'origin': origin})
+                    query = database.banned.insert({'userid': banned.id, 'length': length, 'origin': origin, 'reason': reason})
 
-                    print("LOG MESSAGE: " + context.message.author.name + " banned Player: " + str(banned) + " - At time " + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()) + " - for a period of " + str(message[2]) + " " + str(message[3]))
+                    print("LOG MESSAGE: " + context.message.author.name + " banned Player: " + str(banned) + " - At time " + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()) + " - for a period of " + str(message[2]) + " " + str(message[3]) + "\nReason given: " + reason)
                     await send_emb_message_to_channel(0x00ff00, banned.mention + " has been banned by " + context.message.author.mention + " (Admin)\n\nNOTE: This action has been logged", context)
                     # notify the user
-                    emb = (discord.Embed(description="You have been banned by an Admin for a period of " + str(message[2]) + " " + str(message[3]), colour=0x00ff00))
+                    emb = (discord.Embed(description="You have been banned by an Admin for a period of " + str(message[2]) + " " + str(message[3]) + "\nReason: " + reason, colour=0x00ff00))
                     emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
                     await Bot.send_message(banned, embed=emb)
                 else:
-                    await send_emb_message_to_channel(0x00ff00, "\"" + str(message[2]) + "\" is not a valid length, it must be a number. Please try again\n\n" + cmdprefix + "ban @user length hours|days|months", context)
+                    await send_emb_message_to_channel(0x00ff00, "\"" + str(message[2]) + "\" is not a valid length, it must be a number. Please try again\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban", context)
             except (IndexError):
-                await send_emb_message_to_channel(0x00ff00, "You must @mention the user, please try again\n\n" + cmdprefix + "ban @user length hours|days|months", context)
+                await send_emb_message_to_channel(0x00ff00, "You must @mention the user, please try again\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban", context)
         else:
-            await send_emb_message_to_channel(0xff0000, context.message.author.mention + "\n\nThat is not how you use this command, use:\n\n" + cmdprefix + "ban @user length hours|days|months (pick one)\n\nPlease try again", context)
+            await send_emb_message_to_channel(0xff0000, context.message.author.mention + "\n\nThat is not how you use this command, use:\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban\n\nPlease try again", context)
     else:
         await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you do not have access to this command", context)
 
