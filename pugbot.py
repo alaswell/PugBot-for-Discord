@@ -1172,9 +1172,9 @@ async def _admin(context):
 
 
 # Ban
-@Bot.command(name='ban', description="Admin only command that bans a user from the channel for the period specified\n" + cmdprefix + "ban @user length hours|days|months Reason for the ban", brief="Ban a player", aliases=['ban_player', 'banplayer', 'timeout'], pass_context=True)
+@Bot.command(name='ban', description="Admin only command that bans a user from the channel for the period specified\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban", brief="Ban a player", aliases=['ban_player', 'banplayer', 'timeout'], pass_context=True)
 async def _ban(context):
-    global database, accessRole, poolRole, timeoutRole
+    global database, accessRole, MAP_PICKS, PLAYERS, poolRole, timeoutRole
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     # admin command
     if (await user_has_access(context.message.author)):
@@ -1194,7 +1194,7 @@ async def _ban(context):
                     elif resolution == 'months':
                         length = int(length) * 2629740
                     else:
-                        await send_emb_message_to_channel(0x00ff00, str(resolution) + " is not a valid resolution, it must be either: hours, days, or months. Please try again\n\n" + cmdprefix + "ban @user length hours|days|months Reason for the ban", context)
+                        await send_emb_message_to_channel(0x00ff00, str(resolution) + " is not a valid resolution, it must be either: hours, days, or months. Please try again\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban", context)
                         return
 
                     reason = " ".join(message[4:])
@@ -1204,9 +1204,17 @@ async def _ban(context):
                         await Bot.add_roles(banned, timeoutRole)
                         await asyncio.sleep(2)
                         await Bot.remove_roles(banned, accessRole)
-                        await Bot.remove_roles(banned, poolRole)
                     except (discord.Forbidden, discord.HTTPException):
                         pass
+
+                    # remove them if they are added
+                    if (banned in PLAYERS):
+                        PLAYERS.remove(banned)  # remove from players list
+                        MAP_PICKS.pop(banned, None)  # remove this players nomination if they had one
+                        try:
+                            await Bot.remove_roles(banned, poolRole)
+                        except Exception:
+                            pass
 
                     # Add this ban to the MongoDB
                     query = database.banned.insert({'userid': banned.id, 'length': length, 'origin': origin, 'reason': reason})
@@ -1218,9 +1226,9 @@ async def _ban(context):
                     emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
                     await Bot.send_message(banned, embed=emb)
                 else:
-                    await send_emb_message_to_channel(0x00ff00, "\"" + str(message[2]) + "\" is not a valid length, it must be a number. Please try again\n\n" + cmdprefix + "ban @user length hours|days|months Reason for the ban", context)
+                    await send_emb_message_to_channel(0x00ff00, "\"" + str(message[2]) + "\" is not a valid length, it must be a number. Please try again\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban", context)
             except (IndexError):
-                await send_emb_message_to_channel(0x00ff00, "You must @mention the user, please try again\n\n" + cmdprefix + "ban @user length hours|days|months Reason for the ban", context)
+                await send_emb_message_to_channel(0x00ff00, "You must @mention the user, please try again\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban", context)
         else:
             await send_emb_message_to_channel(0xff0000, context.message.author.mention + "\n\nThat is not how you use this command, use:\n\n" + cmdprefix + "ban @user length hours|days|months (pick one) Reason for the ban\n\nPlease try again", context)
     else:
