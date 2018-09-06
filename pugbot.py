@@ -256,6 +256,14 @@ async def command_is_in_wrong_channel(context):
             return True
         else:
             return False
+    elif context.command.name == 'ban' or context.command.name == 'unban':
+        # Admin channel commands
+        if context.message.channel.id != adminChannelID:
+            # Bot only listens to the request channel when granting access
+            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot use this command in this channel. Retry inside the " + server.get_channel(adminChannelID).name + " channel", context)
+            return True
+        else:
+            return False
     elif context.message.channel.id != singleChannelID:
         # Bot only listens to one channel for all other commands
         await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot use this command in this channel. Retry inside the " + server.get_channel(singleChannelID).name + " channel", context)
@@ -1203,7 +1211,7 @@ async def _ban(context):
                     print("LOG MESSAGE: " + context.message.author.name + " banned Player: " + str(banned) + " - At time " + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()) + " - for a period of " + str(message[2]) + " " + str(message[3]))
                     await send_emb_message_to_channel(0x00ff00, banned.mention + " has been banned by " + context.message.author.mention + " (Admin)\n\nNOTE: This action has been logged", context)
                     # notify the user
-                    emb = (discord.Embed(description="You have been banned by " + context.message.author.mention + " (Admin) for a period of " + str(message[2]) + " " + str(message[3]), colour=0x00ff00))
+                    emb = (discord.Embed(description="You have been banned by an Admin for a period of " + str(message[2]) + " " + str(message[3]), colour=0x00ff00))
                     emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
                     await Bot.send_message(banned, embed=emb)
                 else:
