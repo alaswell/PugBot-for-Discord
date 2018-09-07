@@ -1179,7 +1179,7 @@ async def _ban(context):
     # admin command
     if (await user_has_access(context.message.author)):
         message = context.message.content.split()
-        if (len(message) > 5):
+        if (len(message) > 4):
             try:
                 banned = context.message.mentions[0]
                 if re.match('^[0-9]*$', message[2]):
@@ -1845,7 +1845,7 @@ async def _unban(context):
         try:
             banned = context.message.mentions[0]
             message = context.message.content.split()
-            if len(message) >= 4:
+            if len(message) >= 3:
                 await set_database()
                 reason = " ".join(message[2:])
 
@@ -1872,7 +1872,7 @@ async def _unban(context):
                 print("LOG MESSAGE: The ban for Player: " + str(member) + " has been removed by " + context.message.author.name + " (Admin) for reason: " + reason)
                 dbclient.close()
             else:
-                await send_emb_message_to_channel(0xff0000, "You need to provide a valid reason for why you are removing this ban early\n\n" + cmdprefix + "unban @user the reason why you are removing this ban early", context)
+                await send_emb_message_to_channel(0xff0000, "You need to provide a reason for why you are removing this ban early\n\n" + cmdprefix + "unban @user the reason why you are removing this ban early", context)
         except(IndexError):
             await send_emb_message_to_channel(0xff0000, "That is not a valid user, you must @mention the player\n\n" + cmdprefix + "unban @user the reason why you are removing this ban", context)
     else:
