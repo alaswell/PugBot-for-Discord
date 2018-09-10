@@ -1599,7 +1599,7 @@ async def _radicaldad(context):
         # each time someone adds, we need to check to see if the pickup is full
         if (len(PLAYERS) == sizeOfGame):
             # start the pickup
-            reset = await go_go_gadget_pickup(context.message)
+            reset = await go_go_gadget_pickup(context)
             if (reset):
                 # Reset so we can play another one
                 MAP_PICKS = {}
