@@ -1501,6 +1501,8 @@ async def _pickup(context):
             PICKUP_RUNNING = True
             STARTER.clear()
             STARTER.append(context.message.author)
+            sizeOfGame = config.sizeOfGame
+            sizeOfTeams = config.sizeOfTeams
             await send_emb_message_to_channel(0x00ff00, "A pickup has been started. " + cmdprefix + "add to join up.", context)
             await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
             START_TIME = time.time()
