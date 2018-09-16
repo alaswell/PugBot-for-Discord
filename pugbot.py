@@ -303,7 +303,11 @@ async def go_go_gadget_pickup(context):
     countdown = time.time()
     elapsedtime = time.time() - countdown
     inputobj = 0  # used to manipulate the objects from messages
-    MAP_MODE = True  # allow nominations until we have a full maplist
+    # Only pick a new map if we did not select one already
+    if len(CHOSEN_MAP) == 0:
+        MAP_MODE = True  # allow nominations until we have a full maplist
+    else:
+        MAP_MODE = False # no more nominations now
     pick_captains_counter = 0
     ready_channel = discord.utils.get(context.message.server.channels, id=readyupChannelID)
     RANDOM_TEAMS = True  # if game starter does not change, will pick teams randomly from players list
@@ -387,8 +391,9 @@ async def go_go_gadget_pickup(context):
     await Bot.change_presence(game=discord.Game(name='Map Selection'))
 
     # do we have the right amount of map nominations
-    await check_for_map_nominations(context)
-    MAP_MODE = False  # no more nominations now
+    if MAP_MODE:
+        await check_for_map_nominations(context)
+        MAP_MODE = False  # no more nominations now
 
     # are we still full
     if (len(PLAYERS) < sizeOfGame):
@@ -397,8 +402,8 @@ async def go_go_gadget_pickup(context):
         await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
         return False
 
-    # vote for maps
-    await pick_map(context)
+    if len(CHOSEN_MAP) == 0:
+        await pick_map(context)
 
     # make sure we are still full
     if (len(PLAYERS) < sizeOfGame):
@@ -1026,7 +1031,7 @@ async def user_has_access(author):
 # Add
 @Bot.command(name='add', description="Add yourself to the list of players for the current pickup", brief="Add to the pickup", aliases=['add_me', 'addme', 'join'], pass_context=True)
 async def _add(context):
-    global MAP_MODE, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, SELECTION_MODE, sizeOfGame, STARTER, VOTE_FOR_MAPS
+    global CHOSEN_MAP, MAP_MODE, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, SELECTION_MODE, sizeOfGame, STARTER, VOTE_FOR_MAPS
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return  # there must be an active pickup
     # one can only add if:
@@ -1057,6 +1062,7 @@ async def _add(context):
         reset = await go_go_gadget_pickup(context)
         if (reset):
             # Reset so we can play another one
+            CHOSEN_MAP = []
             MAP_PICKS = {}
             PLAYERS = []
             STARTER = []
@@ -1412,14 +1418,14 @@ async def _last(context):
 # Map
 @Bot.command(name='map', description="Show the chosen map for the current pickup", brief="Show the selected map", aliases=['what_map_won','whatmapwon'], pass_context=True)
 async def _map(context):
-    global MAP_PICKS, SELECTION_MODE
+    global CHOSEN_MAP, MAP_PICKS
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return     # there must be an active pickup
     # only allow if pickup selection has already begun
-    if (SELECTION_MODE):
+    if (len(CHOSEN_MAP) > 0):
         await send_emb_message_to_channel(0x00ff00, "The map for this pickup is " + CHOSEN_MAP[0], context)
     else:
-        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot see the map until the pickup has begun", context)
+        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " there has not been a map pick for this pickup yet", context)
 
 
 # Maps
