@@ -64,10 +64,8 @@ PLAYERS = []
 RED_TEAM = []
 START_TIME = time.time()
 STARTER = []
-MAP_MODE = True
 PICKUP_RUNNING= False
 RANDOM_TEAMS = False
-SELECTION_MODE = False
 VOTE_FOR_MAPS = True
 
 # the bot, client, and server objects
@@ -171,7 +169,7 @@ async def check_bans():
         
 # check that the admin who started the game is still here
 async def check_for_afk_admin():
-    global adminRoleID, STARTER
+    global adminRoleID, cmdprefix, STARTER
     # check for advanced filtering
     def check(msg):
         if (adminRoleID in [r.id for r in msg.author.roles]):
@@ -206,7 +204,7 @@ async def check_for_afk_players():
 
 
 async def check_for_map_nominations(context):
-    global MAP_PICKS, sizeOfGame, sizeOfMapPool, PICKUP_RUNNING, PLAYERS
+    global cmdprefix, MAP_PICKS, sizeOfGame, sizeOfMapPool, PICKUP_RUNNING, PLAYERS
     while(len(MAP_PICKS) < sizeOfMapPool and PICKUP_RUNNING and len(PLAYERS) == sizeOfGame):
         # need to build the list of maps
         mapStr = ""
@@ -224,7 +222,7 @@ async def check_for_map_nominations(context):
 
 # allows the game_starter to veto admin commands
 async def check_for_veto(command, context):
-    global STARTER
+    global cmdprefix, STARTER
     # generic check to allow game_starter to !veto another admin's command
     await send_emb_message_to_channel(0xff0000, STARTER[0].mention + "\n\n" + context.message.author.mention + " is trying to " + command + " your pickup. You have " + str(durationOfVeto) +
                                       " seconds to " + cmdprefix + "veto them, or the command will happen", context)
@@ -293,7 +291,7 @@ async def count_votes_message_channel(tdelta, keys, context, votelist, votetotal
 
 
 async def go_go_gadget_pickup(context):
-    global adminRole, BLUE_TEAM, CHOSEN_MAP, durationOfReadyUp, MAP_MODE, MAP_PICKS, SELECTION_MODE, server, sizeOfGame, STARTER, PICKUP_RUNNING, PLAYERS, poolRole, poolRoleID, RANDOM_TEAMS, RED_TEAM, readyupChannelID, VOTE_FOR_MAPS
+    global adminRole, BLUE_TEAM, CHOSEN_MAP, cmdprefix, durationOfReadyUp, MAP_PICKS, server, sizeOfGame, STARTER, PICKUP_RUNNING, PLAYERS, poolRole, poolRoleID, RANDOM_TEAMS, RED_TEAM, readyupChannelID, VOTE_FOR_MAPS
     afk_players = []
     BLUE_TEAM = []
     caps = []
@@ -303,15 +301,9 @@ async def go_go_gadget_pickup(context):
     countdown = time.time()
     elapsedtime = time.time() - countdown
     inputobj = 0  # used to manipulate the objects from messages
-    # Only pick a new map if we did not select one already
-    if len(CHOSEN_MAP) == 0:
-        MAP_MODE = True  # allow nominations until we have a full maplist
-    else:
-        MAP_MODE = False # no more nominations now
     pick_captains_counter = 0
     ready_channel = discord.utils.get(context.message.server.channels, id=readyupChannelID)
     RANDOM_TEAMS = True  # if game starter does not change, will pick teams randomly from players list
-    SELECTION_MODE = True  # keep people from changing the queue once the game has begun
     td = timedelta(seconds=elapsedtime)
 
     await send_emb_message_to_channel(0x00ff00, "The pickup is starting!!\n\n" + poolRole.mention + " join the " + ready_channel.name + " to signify you are present and ready", context)
@@ -345,7 +337,6 @@ async def go_go_gadget_pickup(context):
     # if afk_players has people in it, then those player(s) timed out
     if (len(afk_players) > 0):
         for idleUser in afk_players:
-            SELECTION_MODE = False
             PLAYERS.remove(idleUser)  # remove from players list
             MAP_PICKS.pop(idleUser, None)  # remove this players nomination if they had one
             try:
@@ -390,27 +381,19 @@ async def go_go_gadget_pickup(context):
     # Map Selection
     await Bot.change_presence(game=discord.Game(name='Map Selection'))
 
-    # do we have the right amount of map nominations
-    if MAP_MODE:
-        await check_for_map_nominations(context)
-        MAP_MODE = False  # no more nominations now
+    if len(CHOSEN_MAP) > 0:
+        verify_chosen_map_is_good(context)
 
-    # are we still full
-    if (len(PLAYERS) < sizeOfGame):
-        # not full
-        await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", context)
-        await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
-        return False
+    # do we have the right amount of map nominations
+    if len(CHOSEN_MAP) == 0:
+        await check_for_map_nominations(context)
+
+    if not pickup_is_full(context): return False  # exit go_go if someone has removed
 
     if len(CHOSEN_MAP) == 0:
         await pick_map(context)
 
-    # make sure we are still full
-    if (len(PLAYERS) < sizeOfGame):
-        # not full
-        await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", context)
-        await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
-        return False
+    if not pickup_is_full(context): return False # exit go_go if someone has removed
 
     # by having the game admin approve
     # we can make sure teams end up fair more often
@@ -440,12 +423,7 @@ async def go_go_gadget_pickup(context):
                 RANDOM_TEAMS = await pick_captains(caps, context)
                 pick_captains_counter += 1
 
-        # one last time ... make sure we are still full
-        if (len(PLAYERS) < sizeOfGame):
-            # not full
-            await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", context)
-            await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
-            return False
+        if not pickup_is_full(context): return False  # exit go_go if someone has removed
 
         # set up the initial teams
         if (RANDOM_TEAMS):
@@ -466,11 +444,7 @@ async def go_go_gadget_pickup(context):
 
         # if teams are not already full:
         if (len(RED_TEAM) < sizeOfTeams and len(BLUE_TEAM) < sizeOfTeams):
-            if (len(PLAYERS) < sizeOfGame):
-                # someone has left the pug
-                await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", context)
-                await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
-                return False
+            if not pickup_is_full(context): return False  # exit go_go if someone has removed
 
             await send_emb_message_to_channel(0x00ff00, caps[0].mention + " vs " + caps[1].mention, context)
             # Blue captain picks first
@@ -482,14 +456,12 @@ async def go_go_gadget_pickup(context):
                 RED_TEAM.append(playerPool[0])
                 await send_emb_message_to_channel_red(playerPool[0].mention + " has been added to the team", context)
             while (len(RED_TEAM) < sizeOfTeams and len(BLUE_TEAM) < sizeOfTeams):
-                if (len(PLAYERS) < sizeOfGame):
-                    # someone has left the pug
-                    await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", context)
-                    await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
-                    return False
+                if not pickup_is_full(context): return False  # exit go_go if someone has removed
 
                 # Red captain gets two picks first round so start with red
                 await red_team_picks(caps, context, playerPool)
+
+                if not pickup_is_full(context): return False  # exit go_go if someone has removed
 
                 if (len(playerPool) > 1):
                     # only make the captain pick if they have a choice
@@ -620,7 +592,7 @@ async def mapname_is_valid(mpname):
 
 # wait until the game starter makes a decision
 async def pick_captains(caps, context):
-    global BLUE_TEAM, PLAYERS, RED_TEAM, STARTER
+    global BLUE_TEAM, cmdprefix, PLAYERS, RED_TEAM, sizeOfTeams, STARTER
     bcap = Bot.user.name
     rcap = Bot.user.name
     # set presence
@@ -796,7 +768,7 @@ async def pick_captains(caps, context):
 
 
 async def pick_map(context):
-    global CHOSEN_MAP, LAST_MAP, PLAYERS, poolRole, poolRoleID, sizeOfGame, sizeOfMapPool, VOTE_FOR_MAPS
+    global CHOSEN_MAP, durationOfMapVote, LAST_MAP, MAP_PICKS, PLAYERS, poolRole, poolRoleID, sizeOfGame, sizeOfMapPool, VOTE_FOR_MAPS
     # vote for maps or random
     if (VOTE_FOR_MAPS):
         votelist = {}
@@ -878,6 +850,16 @@ async def pick_map(context):
     await Bot.send_message(context.message.channel, embed=emb)
 
     LAST_MAP = CHOSEN_MAP # set for _last()
+
+
+async def pickup_is_full(context):
+    global cmdprefix, PLAYERS, sizeOfGame
+    if (len(PLAYERS) < sizeOfGame):
+        # not full
+        await send_emb_message_to_channel(0xff0000, "ABORTING: The pickup is no longer full", context)
+        await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+        return False
+    return True
 
 
 # return the status of PICKUP_RUNNING
@@ -1023,6 +1005,29 @@ async def user_has_access(author):
     return False
 
 
+async def verify_chosen_map_is_good(context):
+    global CHOSEN_MAP, cmdprefix, durationOfCheckin, MAP_PICKS, STARTER
+    didChoose = False
+    await send_emb_message_to_channel(0xffa500, STARTER[0].mention + " the map is currently set to: " + CHOSEN_MAP[0] + "\nReply with " + cmdprefix + "accept - to **accept** the map or " + cmdprefix + "repick - to discard the map and all nominations and **repick**", context)
+    while not didChoose:
+        # check for advanced filtering
+        def check(msg):
+            if (msg.content.startswith(cmdprefix + 'accept') or msg.content.startswith(cmdprefix + 'repick')): return True
+            return False
+
+        inputobj = await Bot.wait_for_message(timeout=durationOfCheckin, author=STARTER[0], check=check)
+        # wait_for_message returns 'None' if asyncio.TimeoutError thrown
+        if (inputobj != None):
+            didChoose = True
+            # clear out CHOSEN_MAP and MAP_PICKS if admin wishes to repick
+            if (inputobj.content.startswith(cmdprefix + "repick")):
+                CHOSEN_MAP = []
+                MAP_PICKS = {}
+        else:
+            didChoose = False
+            await send_emb_message_to_channel(0xff0000, STARTER[0].mention + " please make a selection:\n\n" + cmdprefix + "accept to **accept** the map\n\n" + cmdprefix + "repick to discard the map and all nominations and **repick**\n\n" + CHOSEN_MAP[0], context)
+
+
 #
 # Bot.commands - cmdprefix + help for ingame help
 #
@@ -1031,7 +1036,7 @@ async def user_has_access(author):
 # Add
 @Bot.command(name='add', description="Add yourself to the list of players for the current pickup", brief="Add to the pickup", aliases=['add_me', 'addme', 'join'], pass_context=True)
 async def _add(context):
-    global CHOSEN_MAP, MAP_MODE, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, SELECTION_MODE, sizeOfGame, STARTER, VOTE_FOR_MAPS
+    global CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, sizeOfGame, STARTER, VOTE_FOR_MAPS
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return  # there must be an active pickup
     # one can only add if:
@@ -1039,9 +1044,6 @@ async def _add(context):
     # 	we are not already selecting teams
     if (context.message.author in PLAYERS):
         await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you have already added to this pickup", context)
-        return
-    elif (SELECTION_MODE):
-        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot add once the pickup has begun", context)
         return
     elif (len(PLAYERS) == sizeOfGame):
         await send_emb_message_to_channel(0xff0000, context.message.author.mention + " sorry, the game is currently full\nYou will have to wait until the next one starts", context)
@@ -1066,8 +1068,6 @@ async def _add(context):
             MAP_PICKS = {}
             PLAYERS = []
             STARTER = []
-            MAP_MODE = True
-            SELECTION_MODE = False
             PICKUP_RUNNING = False
             VOTE_FOR_MAPS = True
 
@@ -1343,13 +1343,14 @@ async def _demos(context):
 # End
 @Bot.command(name='end', description="Admin only command that ends the current pickup", brief="End the current pickup", aliases=['edn', 'kill', 'ned', 'stop'], pass_context=True)
 async def _end(context):
-    global MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, STARTER, SELECTION_MODE
+    global CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, STARTER
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return  # there must be an active pickup
     # admin command
     if (await user_has_access(context.message.author)):
         # only end if admin is game_starter or game_starter does not !veto in time
         if (STARTER[0] == context.message.author or not await check_for_veto(cmdprefix + "end", context)):
+            CHOSEN_MAP = []
             MAP_PICKS.clear()
             for p in PLAYERS:
                 try:
@@ -1358,7 +1359,6 @@ async def _end(context):
                     pass
             del PLAYERS[:]
             del STARTER[:]
-            SELECTION_MODE = False
             PICKUP_RUNNING = False
             await send_emb_message_to_channel(0x00ff00, "The pickup has been ended by an admin", context)
             await Bot.change_presence(game=discord.Game(name=' '))
@@ -1418,7 +1418,7 @@ async def _last(context):
 # Map
 @Bot.command(name='map', description="Show the chosen map for the current pickup", brief="Show the selected map", aliases=['what_map_won','whatmapwon'], pass_context=True)
 async def _map(context):
-    global CHOSEN_MAP, MAP_PICKS
+    global CHOSEN_MAP
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return     # there must be an active pickup
     # only allow if pickup selection has already begun
@@ -1451,12 +1451,12 @@ async def _maplist(context):
 # Nominate
 @Bot.command(name='nominate', description="Nominate the map you specified, provided it is valid", brief="Nominate the specified map", aliases=['elect', 'iwanttoplay','nom'], pass_context=True)
 async def _nominate(context):
-    global MAP_MODE, PLAYERS, SELECTION_MODE, sizeOfMapPool, STARTER
+    global CHOSEN_MAP, MAP_PICKS, PLAYERS, sizeOfMapPool, STARTER
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return  # there must be an active pickup
     # only allow if pickup has not already begun
-    if (SELECTION_MODE and not MAP_MODE):
-        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot nominate maps once the pickup has begun", context)
+    if len(CHOSEN_MAP) > 0:
+        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot nominate maps once the map has already been chosen\nCurrent Map: " + CHOSEN_MAP[0], context)
     else:
         # must also be added to the current pickup
         if (context.message.author in PLAYERS):
@@ -1521,7 +1521,7 @@ async def _pickup(context):
 # Players
 @Bot.command(name='players', description="Change the number of players per team (Admin only)", brief="Change the number of players in pickup", aliases=['players_per_team', 'size_of_teams', 'sizeofteams', 'team_size', 'teamsize'], pass_context=True)
 async def _players(context):
-    global PLAYERS, SELECTION_MODE, sizeOfGame, sizeOfTeams, STARTER
+    global PLAYERS, sizeOfGame, sizeOfTeams, STARTER
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return  # there must be an active pickup
     # admin command
@@ -1583,15 +1583,12 @@ async def _eight_ball(context):
 # Radicaldad
 @Bot.command(name='radicaldad', description="", brief="Not for you", pass_context=True)
 async def _radicaldad(context):
-    global MAP_MODE, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, SELECTION_MODE, sizeOfGame, STARTER, vipPlayerID, VOTE_FOR_MAPS
+    global CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, sizeOfGame, STARTER, vipPlayerID, VOTE_FOR_MAPS
     # same as add but with the restriction on ID
     if context.message.author.id == vipPlayerID:
         if not await pickup_is_running(context): return  # there must be an active pickup
         if (context.message.author in PLAYERS):
             await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you have already added to this pickup", context)
-            return
-        elif (SELECTION_MODE):
-            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot add once the pickup has begun", context)
             return
         elif (len(PLAYERS) == sizeOfGame):
             await send_emb_message_to_channel(0xff0000, context.message.author.mention + " sorry, the game is currently full\nYou will have to wait until the next one starts", context)
@@ -1612,11 +1609,10 @@ async def _radicaldad(context):
             reset = await go_go_gadget_pickup(context)
             if (reset):
                 # Reset so we can play another one
+                CHOSEN_MAP = []
                 MAP_PICKS = {}
                 PLAYERS = []
                 STARTER = []
-                MAP_MODE = True
-                SELECTION_MODE = False
                 PICKUP_RUNNING = False
                 VOTE_FOR_MAPS = True
 
@@ -1630,77 +1626,71 @@ async def _records(context):
 # Remove
 @Bot.command(name='remove', description="Remove yourself or the specified player (Admin only) and any map nomination they may have from the pickup", brief="Removes the user from the pickup", aliases=['removeme', 'remove_me', 'removeplayer', 'remove_player'], pass_context=True)
 async def _remove(context):
-    global PLAYERS, poolRole, SELECTION_MODE, sizeOfGame
+    global MAP_PICKS, PLAYERS, poolRole, sizeOfGame
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return  # there must be an active pickup
-    if (SELECTION_MODE is False):
-        try:
-            idleUser = context.message.mentions[0]
-            # must be an admin to remove someone other than yourself
-            if (await user_has_access(context.message.author)):
-                if (idleUser in PLAYERS):
-                    PLAYERS.remove(idleUser)  # remove from players list
-                    MAP_PICKS.pop(idleUser, None)  # remove this players nomination if they had one
-                    try:
-                        await Bot.remove_roles(context.message.mentions[0], poolRole)
-                    except Exception:
-                        pass
-                    await send_emb_message_to_channel(0x00ff00, context.message.mentions[0].mention + " you have been removed from the pickup by " + context.message.author.mention + " (admin)", context)
-                    await Bot.change_presence(game=discord.Game( name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
-                else:
-                    await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " that user is not added to the pickup", context)
-            else:
-                await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you do not have access to this command", context)
-        except(IndexError):
-            # no user mentioned so check if the author is in pickup
-            idleUser = context.message.author
+    try:
+        idleUser = context.message.mentions[0]
+        # must be an admin to remove someone other than yourself
+        if (await user_has_access(context.message.author)):
             if (idleUser in PLAYERS):
                 PLAYERS.remove(idleUser)  # remove from players list
                 MAP_PICKS.pop(idleUser, None)  # remove this players nomination if they had one
                 try:
-                    await Bot.remove_roles(idleUser, poolRole)
+                    await Bot.remove_roles(context.message.mentions[0], poolRole)
                 except Exception:
                     pass
-                await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " you have been removed from the pickup", context)
+                await send_emb_message_to_channel(0x00ff00, context.message.mentions[0].mention + " you have been removed from the pickup by " + context.message.author.mention + " (admin)", context)
                 await Bot.change_presence(game=discord.Game( name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
             else:
-                await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " no worries, you never even added", context)
-    else: # selectionMode is True
-        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot use " + cmdprefix + "remove once the pickup has begun", context)
+                await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " that user is not added to the pickup", context)
+        else:
+            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you do not have access to this command", context)
+    except(IndexError):
+        # no user mentioned so check if the author is in pickup
+        idleUser = context.message.author
+        if (idleUser in PLAYERS):
+            PLAYERS.remove(idleUser)  # remove from players list
+            MAP_PICKS.pop(idleUser, None)  # remove this players nomination if they had one
+            try:
+                await Bot.remove_roles(idleUser, poolRole)
+            except Exception:
+                pass
+            await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " you have been removed from the pickup", context)
+            await Bot.change_presence(game=discord.Game( name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+        else:
+            await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " no worries, you never even added", context)
 
 
 # Remove Nomination
 @Bot.command(name='removenom', description="Allows an admin to remove a map nominate from the list", brief="Removes the specified map nomination from the pickup", aliases=['removenomination', 'remove_nom', 'remove_nomination', 'vetonomination', 'veto_nom', 'veto_nomination'], pass_context=True)
 async def _removenom(context):
-    global SELECTION_MODE
+    global MAP_PICKS
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return  # there must be an active pickup
-    if (SELECTION_MODE is False):
-        # must be an admin to remove a map nomination
-        if (await user_has_access(context.message.author)):
-            message = context.message.content.split()
-            # make sure the user provided a map
-            if (len(message) > 1):
-                # check to see if the provided map is an alias
-                atom = await mapname_is_valid(message[1])
-                if (atom != "INVALID"):
-                    # check to see if someone has noimated this map
-                    for author, mp in MAP_PICKS.items():
-                        if (atom == str(mp)):
-                            # remove this nomination
-                            MAP_PICKS.pop(author, None)
-                            await send_emb_message_to_channel(0x00ff00, atom + " has been removed from the nominations by " + context.message.author.mention + " (admin)", context)
-                            return
-                    # no match found
-                    await send_emb_message_to_channel(0xff0000, atom + " is not a nominated map currently", context)
-                else:
-                    await send_emb_message_to_channel(0xff0000, context.message.author.mention + " that mapname is not a valid map. Please make another selection", context)
+    # must be an admin to remove a map nomination
+    if (await user_has_access(context.message.author)):
+        message = context.message.content.split()
+        # make sure the user provided a map
+        if (len(message) > 1):
+            # check to see if the provided map is an alias
+            atom = await mapname_is_valid(message[1])
+            if (atom != "INVALID"):
+                # check to see if someone has noimated this map
+                for author, mp in MAP_PICKS.items():
+                    if (atom == str(mp)):
+                        # remove this nomination
+                        MAP_PICKS.pop(author, None)
+                        await send_emb_message_to_channel(0x00ff00, atom + " has been removed from the nominations by " + context.message.author.mention + " (admin)", context)
+                        return
+                # no match found
+                await send_emb_message_to_channel(0xff0000, atom + " is not a nominated map currently", context)
             else:
-                await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you must provide a mapname. " + cmdprefix + "removenom mapname", context)
-        else: # not an admin
-            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you do not have access to this command", context)
-    else: # selectionMode is True
-        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot use " + cmdprefix + "removenom once the pickup has begun", context)
+                await send_emb_message_to_channel(0xff0000, context.message.author.mention + " that mapname is not a valid map. Please make another selection", context)
+        else:
+            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you must provide a mapname. " + cmdprefix + "removenom mapname", context)
+    else: # not an admin
+        await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you do not have access to this command", context)
 
 
 # Setmode
