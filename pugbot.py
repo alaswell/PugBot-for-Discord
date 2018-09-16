@@ -109,27 +109,28 @@ async def author_is_in_timeout(message):
 # Select the BLUE_TEAM
 async def blue_team_picks(caps, context, playerPool):
     global BLUE_TEAM, RED_TEAM, PLAYERS, server
+    playerPicked = False
     await send_emb_message_to_channel(0x00ff00, caps[0].mention + " type @player to pick. Available players are:\n\n" + '\n'.join([p.mention for p in playerPool]), context)
 
-    # check for a pick and catch it if they don't mention an available player
-    try:
-        inputobj = await Bot.wait_for_message(author=server.get_member(caps[0].id))
-        picked = inputobj.mentions[0]
+    while not playerPicked:
+        # check for a pick and catch it if they don't mention an available player
+        try:
+            inputobj = await Bot.wait_for_message(author=server.get_member(caps[0].id))
+            picked = inputobj.mentions[0]
 
-        # If the player is in players and they are not already picked, add to the team
-        if (picked in PLAYERS):
-            if (picked not in RED_TEAM and picked not in BLUE_TEAM):
-                BLUE_TEAM.append(picked)
-                playerPool.remove(picked)
-                await send_emb_message_to_channel_blue(picked.mention + " has been added to the team", context)
+            # If the player is in players and they are not already picked, add to the team
+            if (picked in PLAYERS):
+                if (picked not in RED_TEAM and picked not in BLUE_TEAM):
+                    BLUE_TEAM.append(picked)
+                    playerPool.remove(picked)
+                    playerPicked = True
+                    await send_emb_message_to_channel_blue(picked.mention + " has been added to the team", context)
+                else:
+                    await send_emb_message_to_channel(0xff0000, picked.mention + " is already on a team", context)
             else:
-                await send_emb_message_to_channel(0xff0000, picked.mention + " is already on a team", context)
-                await blue_team_picks(caps, context, playerPool)
-        else:
-            await send_emb_message_to_channel(0xff0000, picked.mention + " is not in this pickup", context)
-            await blue_team_picks(caps, context, playerPool)
-    except(IndexError):
-        pass
+                await send_emb_message_to_channel(0xff0000, picked.mention + " is not in this pickup", context)
+        except(IndexError):
+            pass
 
 
 async def check_bans():
@@ -887,27 +888,28 @@ async def pickup_is_running(context):
 # Select the RED_TEAM
 async def red_team_picks(caps, context, playerPool):
     global BLUE_TEAM, RED_TEAM, PLAYERS, server
+    playerPicked = False
     await send_emb_message_to_channel(0x00ff00, caps[1].mention + " type @player to pick. Available players are:\n\n" + '\n'.join([p.mention for p in playerPool]), context)
 
-    # check for a pick and catch it if they don't mention an available player
-    try:
-        inputobj = await Bot.wait_for_message(author=server.get_member(caps[1].id))
-        picked = inputobj.mentions[0]
+    while not playerPicked:
+        # check for a pick and catch it if they don't mention an available player
+        try:
+            inputobj = await Bot.wait_for_message(author=server.get_member(caps[1].id))
+            picked = inputobj.mentions[0]
 
-        # If the player is in players and they are not already picked, add to the team
-        if (picked in PLAYERS):
-            if (picked not in RED_TEAM and picked not in BLUE_TEAM):
-                RED_TEAM.append(picked)
-                playerPool.remove(picked)
-                await send_emb_message_to_channel_red(picked.mention + " has been added to the team", context)
+            # If the player is in players and they are not already picked, add to the team
+            if (picked in PLAYERS):
+                if (picked not in RED_TEAM and picked not in BLUE_TEAM):
+                    RED_TEAM.append(picked)
+                    playerPool.remove(picked)
+                    playerPicked = True
+                    await send_emb_message_to_channel_red(picked.mention + " has been added to the team", context)
+                else:
+                    await send_emb_message_to_channel(0xff0000, picked.mention + " is already on a team", context)
             else:
-                await send_emb_message_to_channel(0xff0000, picked.mention + " is already on a team", context)
-                await red_team_picks(caps, context, playerPool)
-        else:
-            await send_emb_message_to_channel(0xff0000, picked.mention + " is not in this pickup", context)
-            await red_team_picks(caps, context, playerPool)
-    except(IndexError):
-        pass
+                await send_emb_message_to_channel(0xff0000, picked.mention + " is not in this pickup", context)
+        except(IndexError):
+            pass
 
 
 # remove the poolRoleID from all the players from the last pickup
