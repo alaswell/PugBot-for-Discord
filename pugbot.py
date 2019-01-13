@@ -787,15 +787,15 @@ async def pick_map(context):
         duplicateFnd = False
         await send_emb_message_to_channel(0x00ff00, "Map voting has started\n\n" + poolRole.mention + " you have " + str(durationOfMapVote) + " seconds to vote for a map\n\nreply with a number between 1 and " + str(sizeOfMapPool) + " to cast your vote", context)
         await count_votes_message_channel(td, keys, context, votelist, votetotals)
-        while (td.total_seconds() < durationOfMapVote and len(PLAYERS) == sizeOfGame):
+        while td.total_seconds() < durationOfMapVote and len(PLAYERS) == sizeOfGame:
             async def gatherVotes(msg):
                 # check function for advance filtering
                 def check(msg):
                     # only accept votes from members in the pool
                     # update the vote if they change it
-                    if (poolRoleID in [r.id for r in msg.author.roles]):
+                    if poolRoleID in [r.id for r in msg.author.roles]:
                         for x in range(1, sizeOfMapPool + 1):
-                            if (msg.content == str(x)):
+                            if msg.content == str(x):
                                 votelist.update({msg.author.name: x})
                         return True
 
@@ -803,11 +803,14 @@ async def pick_map(context):
                 # this forces the counter to increment more often (read: more messages to the channel)
                 await Bot.wait_for_message(timeout=5, check=check)
 
-            await gatherVotes(context.message)
+            try:
+                await gatherVotes(context.message)
+            except Exception:
+                pass  # to keep the vote going, we want ignore any exceptions gaterVotes() may have thrown
             elapsedtime = time.time() - countdown
             td = timedelta(seconds=elapsedtime)
             # message everyone the maps votes on every even iteration
-            if ((counter % 2) == 1 and (td.total_seconds() < durationOfMapVote)):
+            if (counter % 2) == 1 and (td.total_seconds() < durationOfMapVote):
                 await count_votes_message_channel(td, keys, context, votelist, votetotals)
             counter += 1
 
