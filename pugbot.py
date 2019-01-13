@@ -388,12 +388,12 @@ async def go_go_gadget_pickup(context):
     if len(CHOSEN_MAP) == 0:
         await check_for_map_nominations(context)
 
-    if not pickup_is_full(context): return False  # exit go_go if someone has removed
+    if not await pickup_is_full(context): return False  # exit go_go if someone has removed
 
     if len(CHOSEN_MAP) == 0:
         await pick_map(context)
 
-    if not pickup_is_full(context): return False # exit go_go if someone has removed
+    if not await pickup_is_full(context): return False # exit go_go if someone has removed
 
     # by having the game admin approve
     # we can make sure teams end up fair more often
@@ -423,7 +423,7 @@ async def go_go_gadget_pickup(context):
                 RANDOM_TEAMS = await pick_captains(caps, context)
                 pick_captains_counter += 1
 
-        if not pickup_is_full(context): return False  # exit go_go if someone has removed
+        if not await pickup_is_full(context): return False  # exit go_go if someone has removed
 
         # set up the initial teams
         if (RANDOM_TEAMS):
@@ -444,7 +444,7 @@ async def go_go_gadget_pickup(context):
 
         # if teams are not already full:
         if (len(RED_TEAM) < sizeOfTeams and len(BLUE_TEAM) < sizeOfTeams):
-            if not pickup_is_full(context): return False  # exit go_go if someone has removed
+            if not await pickup_is_full(context): return False  # exit go_go if someone has removed
 
             await send_emb_message_to_channel(0x00ff00, caps[0].mention + " vs " + caps[1].mention, context)
             # Blue captain picks first
@@ -456,12 +456,12 @@ async def go_go_gadget_pickup(context):
                 RED_TEAM.append(playerPool[0])
                 await send_emb_message_to_channel_red(playerPool[0].mention + " has been added to the team", context)
             while (len(RED_TEAM) < sizeOfTeams and len(BLUE_TEAM) < sizeOfTeams):
-                if not pickup_is_full(context): return False  # exit go_go if someone has removed
+                if not await pickup_is_full(context): return False  # exit go_go if someone has removed
 
                 # Red captain gets two picks first round so start with red
                 await red_team_picks(caps, context, playerPool)
 
-                if not pickup_is_full(context): return False  # exit go_go if someone has removed
+                if not await pickup_is_full(context): return False  # exit go_go if someone has removed
 
                 if (len(playerPool) > 1):
                     # only make the captain pick if they have a choice
