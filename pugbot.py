@@ -133,38 +133,42 @@ async def blue_team_picks(caps, context, playerPool):
 
 async def check_bans():
     global bannedChannelID, accessRole, database, dbclient, server, timeoutRole
-    while not Bot.is_closed:
-        # reconnect to MongoDB
-        await set_database()
-        collection = database['banned']
-        cursor = collection.find({})
-        for document in cursor:
-            origin = document.get('origin')
-            length = document.get('length')
-            elapsed_time = time.time() - origin
-            if elapsed_time >= length:
-                # timeout has elapsed, give user back access
-                member = server.get_member(document.get('userid'))
-                try:
-                    await Bot.remove_roles(member, timeoutRole)
-                    await asyncio.sleep(2)
-                    await Bot.add_roles(member, accessRole)
-                except Exception:
-                    pass
 
-                # delete the ban from the MongoDB
-                collection.delete_one(document)
-                # notify the admins
-                emb = (discord.Embed(description="The ban for user " + member.mention + " has expired. They have been granted access to the channel once again", colour=0x00ff00))
-                emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-                await Bot.send_message(server.get_channel(bannedChannelID), embed=emb)
-                # notify the user
-                emb = (discord.Embed(description="Your ban time has expired. You have been granted access to the bot and the channel once again", colour=0x00ff00))
-                emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-                await Bot.send_message(member, embed=emb)
-                print("LOG MESSAGE: The ban for Player: " + str(member) + " has been removed by the bot")
-        dbclient.close()
-        await asyncio.sleep(600)  # 10 minutes
+    while not Bot.is_closed:
+        try:
+            # reconnect to MongoDB
+            await set_database()
+            collection = database['banned']
+            cursor = collection.find({})
+            for document in cursor:
+                origin = document.get('origin')
+                length = document.get('length')
+                elapsed_time = time.time() - origin
+                if elapsed_time >= length:
+                    # timeout has elapsed, give user back access
+                    member = server.get_member(document.get('userid'))
+                    try:
+                        await Bot.remove_roles(member, timeoutRole)
+                        await asyncio.sleep(2)
+                        await Bot.add_roles(member, accessRole)
+                    except Exception:
+                        pass
+
+                    # delete the ban from the MongoDB
+                    collection.delete_one(document)
+                    # notify the admins
+                    emb = (discord.Embed(description="The ban for user " + member.mention + " has expired. They have been granted access to the channel once again", colour=0x00ff00))
+                    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
+                    await Bot.send_message(server.get_channel(bannedChannelID), embed=emb)
+                    # notify the user
+                    emb = (discord.Embed(description="Your ban time has expired. You have been granted access to the bot and the channel once again", colour=0x00ff00))
+                    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
+                    await Bot.send_message(member, embed=emb)
+                    print("LOG MESSAGE: The ban for Player: " + str(member) + " has been removed by the bot")
+            dbclient.close()
+            await asyncio.sleep(600)  # 10 minutes
+        except:
+            pass # we can ignore an error when checking this once in a while
 
         
 # check that the admin who started the game is still here
@@ -423,7 +427,7 @@ async def go_go_gadget_pickup(context):
                 RANDOM_TEAMS = await pick_captains(caps, context)
                 pick_captains_counter += 1
 
-        if not await pickup_is_full(context): return False  # exit go_go if someone has removed
+        if not awaitpickup_is_full(context): return False  # exit go_go if someone has removed
 
         # set up the initial teams
         if (RANDOM_TEAMS):
@@ -805,8 +809,8 @@ async def pick_map(context):
 
             try:
                 await gatherVotes(context.message)
-            except Exception:
-                pass  # to keep the vote going, we want ignore any exceptions gaterVotes() may have thrown
+            except:
+                pass # to keep the vote going, we want to ignore any exceptions gatherVotes() may have thrown
             elapsedtime = time.time() - countdown
             td = timedelta(seconds=elapsedtime)
             # message everyone the maps votes on every even iteration
