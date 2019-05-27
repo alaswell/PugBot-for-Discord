@@ -389,7 +389,7 @@ async def go_go_gadget_pickup(context):
     await Bot.change_presence(game=discord.Game(name='Map Selection'))
 
     if len(CHOSEN_MAP) > 0:
-        verify_chosen_map_is_good(context)
+        await verify_chosen_map_is_good(context)
 
     # do we have the right amount of map nominations
     if len(CHOSEN_MAP) == 0:
