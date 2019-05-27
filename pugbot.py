@@ -392,12 +392,12 @@ async def go_go_gadget_pickup(context):
     if len(CHOSEN_MAP) == 0:
         await check_for_map_nominations(context)
 
-    if not await pickup_is_full(context): return False  # exit go_go if someone has removed
+    if not pickup_is_full(context): return False  # exit go_go if someone has removed
 
     if len(CHOSEN_MAP) == 0:
         await pick_map(context)
 
-    if not await pickup_is_full(context): return False # exit go_go if someone has removed
+    if not pickup_is_full(context): return False # exit go_go if someone has removed
 
     # by having the game admin approve
     # we can make sure teams end up fair more often
@@ -448,7 +448,7 @@ async def go_go_gadget_pickup(context):
 
         # if teams are not already full:
         if (len(RED_TEAM) < sizeOfTeams and len(BLUE_TEAM) < sizeOfTeams):
-            if not await pickup_is_full(context): return False  # exit go_go if someone has removed
+            if not pickup_is_full(context): return False  # exit go_go if someone has removed
 
             await send_emb_message_to_channel(0x00ff00, caps[0].mention + " vs " + caps[1].mention, context)
             # Blue captain picks first
@@ -460,12 +460,12 @@ async def go_go_gadget_pickup(context):
                 RED_TEAM.append(playerPool[0])
                 await send_emb_message_to_channel_red(playerPool[0].mention + " has been added to the team", context)
             while (len(RED_TEAM) < sizeOfTeams and len(BLUE_TEAM) < sizeOfTeams):
-                if not await pickup_is_full(context): return False  # exit go_go if someone has removed
+                if not pickup_is_full(context): return False  # exit go_go if someone has removed
 
                 # Red captain gets two picks first round so start with red
                 await red_team_picks(caps, context, playerPool)
 
-                if not await pickup_is_full(context): return False  # exit go_go if someone has removed
+                if not pickup_is_full(context): return False  # exit go_go if someone has removed
 
                 if (len(playerPool) > 1):
                     # only make the captain pick if they have a choice
@@ -791,15 +791,15 @@ async def pick_map(context):
         duplicateFnd = False
         await send_emb_message_to_channel(0x00ff00, "Map voting has started\n\n" + poolRole.mention + " you have " + str(durationOfMapVote) + " seconds to vote for a map\n\nreply with a number between 1 and " + str(sizeOfMapPool) + " to cast your vote", context)
         await count_votes_message_channel(td, keys, context, votelist, votetotals)
-        while td.total_seconds() < durationOfMapVote and len(PLAYERS) == sizeOfGame:
+        while (td.total_seconds() < durationOfMapVote and len(PLAYERS) == sizeOfGame):
             async def gatherVotes(msg):
                 # check function for advance filtering
                 def check(msg):
                     # only accept votes from members in the pool
                     # update the vote if they change it
-                    if poolRoleID in [r.id for r in msg.author.roles]:
+                    if (poolRoleID in [r.id for r in msg.author.roles]):
                         for x in range(1, sizeOfMapPool + 1):
-                            if msg.content == str(x):
+                            if (msg.content == str(x)):
                                 votelist.update({msg.author.name: x})
                         return True
 
@@ -814,7 +814,7 @@ async def pick_map(context):
             elapsedtime = time.time() - countdown
             td = timedelta(seconds=elapsedtime)
             # message everyone the maps votes on every even iteration
-            if (counter % 2) == 1 and (td.total_seconds() < durationOfMapVote):
+            if ((counter % 2) == 1 and (td.total_seconds() < durationOfMapVote)):
                 await count_votes_message_channel(td, keys, context, votelist, votetotals)
             counter += 1
 
