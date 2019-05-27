@@ -120,10 +120,10 @@ async def blue_team_picks(caps, context, playerPool):
             if (picked in PLAYERS):
                 if (picked not in RED_TEAM and picked not in BLUE_TEAM):
                     BLUE_TEAM.append(picked)
-					try:
-						playerPool.remove(picked)
-					except ValueError:
-						# 'picked' is not in playerPool, so just move on  
+                    try:
+                        playerPool.remove(picked)
+                    except ValueError:
+                        pass # 'picked' is not in playerPool, so just move on  
                     playerPicked = True
                     await send_emb_message_to_channel_blue(picked.mention + " has been added to the team", context)
                 else:
@@ -898,10 +898,10 @@ async def red_team_picks(caps, context, playerPool):
             if (picked in PLAYERS):
                 if (picked not in RED_TEAM and picked not in BLUE_TEAM):
                     RED_TEAM.append(picked)
-					try:
-						playerPool.remove(picked)
-					except ValueError:
-						# 'picked' is not in playerPool, so just move on                    
+                    try:
+                        playerPool.remove(picked)
+                    except ValueError:
+                        pass # 'picked' is not in playerPool, so just move on
                     playerPicked = True
                     await send_emb_message_to_channel_red(picked.mention + " has been added to the team", context)
                 else:
@@ -1911,12 +1911,12 @@ async def _unsubscribe(context):
 # make bot commands case insensitive
 @Bot.event
 async def on_message(message):
-	# No bot for bad users
-	try:
-		if await author_is_in_timeout(message): return 
-	except AttributeError:
-		print("ERROR MESSAGE: Something went wrong at " + time.time() + "\nDue to author_is_in_timeout => AttributeError: 'NoneType' object has no attribute 'roles'\n\n" + context.message.author.mention)
-		return    
+    # No bot for bad users
+    try:
+        if await author_is_in_timeout(message): return 
+    except AttributeError:
+        print("ERROR MESSAGE: Something went wrong at " + time.time() + "\nDue to author_is_in_timeout => AttributeError: 'NoneType' object has no attribute 'roles'\n\n" + context.message.author.mention)
+        return    
     message.content = message.content.lower()
     await Bot.process_commands(message)
 
