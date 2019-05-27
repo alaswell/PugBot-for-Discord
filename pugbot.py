@@ -261,9 +261,9 @@ async def command_is_in_wrong_channel(context):
             return False
     elif context.command.name == 'ban' or context.command.name == 'unban':
         # Admin channel commands
-        if context.message.channel.id != adminChannelID:
-            # Bot only listens to the request channel when granting access
-            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot use this command in this channel. Retry inside the " + server.get_channel(adminChannelID).name + " channel", context)
+        if context.message.channel.id != adminChannelID and context.message.channel.id != bannedChannelID:
+            # Bot only listens to the admin channel or the banned channel when banning or unbanning players
+            await send_emb_message_to_channel(0xff0000, context.message.author.mention + " you cannot use this command in this channel. Retry inside the " + server.get_channel(adminChannelID).name + " or the " + server.get_channel(bannedChannelID).name + " channel", context)
             return True
         else:
             return False
