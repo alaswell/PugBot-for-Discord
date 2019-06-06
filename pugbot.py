@@ -308,7 +308,6 @@ async def go_go_gadget_pickup(context):
     countdown = time.time()
     elapsedtime = time.time() - countdown
     inputobj = 0  # used to manipulate the objects from messages
-    pick_captains_counter = 0
     ready_channel = discord.utils.get(context.message.server.channels, id=readyupChannelID)
     RANDOM_TEAMS = True  # if game starter does not change, will pick teams randomly from players list
     td = timedelta(seconds=elapsedtime)
@@ -366,7 +365,7 @@ async def go_go_gadget_pickup(context):
                 # do we have an admin in the pool we can give the pickup to
                 for p in PLAYERS:
                     if (await user_has_access(p)):
-                        # admin found : transfering pickup
+                        # admin found : transferring pickup
                         await send_emb_message_to_channel(0xff0000, STARTER[0].mention + " seems to be missing\n\nTransfering the game to " + p.mention, context)
                         STARTER = []
                         STARTER.append(p)
@@ -918,8 +917,8 @@ async def remove_everyone_from_pool_role(context):
     # remove from all users in both teams
     for p in BLUE_TEAM:
         await Bot.remove_roles(p, poolRole)
-        for p in RED_TEAM:
-            await Bot.remove_roles(p, poolRole)
+    for p in RED_TEAM:
+        await Bot.remove_roles(p, poolRole)
     # reset presence to nothing
     await Bot.change_presence(game=discord.Game(name=''))
 
@@ -1049,7 +1048,7 @@ async def verify_chosen_map_is_good(context):
 # Add
 @Bot.command(name='add', description="Add yourself to the list of players for the current pickup", brief="Add to the pickup", aliases=['add_me', 'addme', 'join'], pass_context=True)
 async def _add(context):
-    global CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, sizeOfGame, STARTER, VOTE_FOR_MAPS
+    global BLUE_TEAM, caps, CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, RED_TEAM, sizeOfGame, STARTER, VOTE_FOR_MAPS
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return  # there must be an active pickup
     # one can only add if:
@@ -1083,6 +1082,14 @@ async def _add(context):
             STARTER = []
             PICKUP_RUNNING = False
             VOTE_FOR_MAPS = True
+        else:
+            # These need to be reset to avoid duplicate events
+            await remove_everyone_from_pool_role(context)
+            BLUE_TEAM = []
+            CHOSEN_MAP = []
+            RED_TEAM = []
+            caps = []
+
 
 
 # Add Alias
@@ -1596,7 +1603,7 @@ async def _eight_ball(context):
 # Radicaldad
 @Bot.command(name='radicaldad', description="", brief="Not for you", pass_context=True)
 async def _radicaldad(context):
-    global CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, sizeOfGame, STARTER, vipPlayerID, VOTE_FOR_MAPS
+    global BLUE_TEAM, caps, CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, RED_TEAM, sizeOfGame, STARTER, vipPlayerID, VOTE_FOR_MAPS
     # same as add but with the restriction on ID
     if context.message.author.id == vipPlayerID:
         if not await pickup_is_running(context): return  # there must be an active pickup
@@ -1628,6 +1635,13 @@ async def _radicaldad(context):
                 STARTER = []
                 PICKUP_RUNNING = False
                 VOTE_FOR_MAPS = True
+            else:
+                # These need to be reset to avoid duplicate events
+                await remove_everyone_from_pool_role(context)
+                BLUE_TEAM = []
+                CHOSEN_MAP = []
+                RED_TEAM = []
+                caps = []
 
 
 # Records
