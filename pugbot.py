@@ -108,7 +108,7 @@ async def author_is_in_timeout(message):
 async def blue_team_picks(caps, context, playerPool):
     global BLUE_TEAM, RED_TEAM, PLAYERS, server
     playerPicked = False
-    await send_emb_message_to_channel(0x00ff00, caps[0].mention + " type @player to pick. Available players are:\n\n" + '\n'.join([p.mention for p in playerPool]), context)
+    await send_emb_message_to_channel(0x00ff00, caps[0].mention + " type @player to pick. Available players are listed in the Channel topic (top of discord)", context)
 
     while not playerPicked:
         # check for a pick and catch it if they don't mention an available player
@@ -308,7 +308,6 @@ async def go_go_gadget_pickup(context):
     countdown = time.time()
     elapsedtime = time.time() - countdown
     inputobj = 0  # used to manipulate the objects from messages
-    pick_captains_counter = 0
     ready_channel = discord.utils.get(context.message.server.channels, id=readyupChannelID)
     RANDOM_TEAMS = True  # if game starter does not change, will pick teams randomly from players list
     td = timedelta(seconds=elapsedtime)
@@ -366,7 +365,7 @@ async def go_go_gadget_pickup(context):
                 # do we have an admin in the pool we can give the pickup to
                 for p in PLAYERS:
                     if (await user_has_access(p)):
-                        # admin found : transfering pickup
+                        # admin found : transferring pickup
                         await send_emb_message_to_channel(0xff0000, STARTER[0].mention + " seems to be missing\n\nTransfering the game to " + p.mention, context)
                         STARTER = []
                         STARTER.append(p)
@@ -637,7 +636,7 @@ async def pick_captains(caps, context):
             # therfor we have to get each name individually
             # this way the admin has control over who is blue and red
             plyrStr = '\n'.join([p.mention for p in PLAYERS])
-            await send_emb_message_to_channel_blue(STARTER[0].mention + " pick the blue team captain using @playername in your reply. Available players are:\n\n" + plyrStr, context)
+            await send_emb_message_to_channel_blue(STARTER[0].mention + " pick the blue team captain using @playername in your reply. Available players are listed in the Channel topic (top of discord)", context)
             while bcap == Bot.user.name:
                 try:
                     # try to get the user the admin has specified
@@ -645,20 +644,20 @@ async def pick_captains(caps, context):
                     if (inputobj != None):
                         bcap = inputobj.mentions[0]
                         if (bcap not in PLAYERS):
-                            await send_emb_message_to_channel(0xff0000, STARTER[0].mention + " player must be added to the pickup. Available players are:\n\n" + plyrStr, context)
+                            await send_emb_message_to_channel(0xff0000, STARTER[0].mention + " player must be added to the pickup. Available players are listed in the Channel topic (top of discord)", context)
                             bcap = Bot.user.name
                     else:  # timeout
-                        await send_emb_message_to_channel_blue(STARTER[0].mention + " pick the blue team captain using @playername in your reply. Available players are:\n\n" + plyrStr, context)
+                        await send_emb_message_to_channel_blue(STARTER[0].mention + " pick the blue team captain using @playername in your reply. Available players are listed in the Channel topic (top of discord)", context)
                 except(IndexError):
                     # keep trying if they did not mention someone
-                    await send_emb_message_to_channel_blue(STARTER[0].mention + " pick the blue team captain using @playername in your reply. Available players are:\n\n" + plyrStr, context)
+                    await send_emb_message_to_channel_blue(STARTER[0].mention + " pick the blue team captain using @playername in your reply. Available players are listed in the Channel topic (top of discord)", context)
             # do the same for red team
             temp = []  # list for players
             for p in PLAYERS:
                 if p != bcap:
                     temp.append(p)
             plyrStr = '\n'.join([p.mention for p in temp])
-            await send_emb_message_to_channel_red(STARTER[0].mention + " pick the red team captain using @playername in your reply. Available players are:\n\n" + plyrStr, context)
+            await send_emb_message_to_channel_red(STARTER[0].mention + " pick the red team captain using @playername in your reply. Available players are listed in the Channel topic (top of discord)", context)
             while rcap == Bot.user.name:
                 try:
                     # try to get the user the admin has specified
@@ -666,13 +665,13 @@ async def pick_captains(caps, context):
                     if (inputobj != None):
                         rcap = inputobj.mentions[0]
                         if (rcap not in PLAYERS):
-                            await send_emb_message_to_channel(0xff0000, STARTER[0].mention + " player must be added to the pickup. Available players are:\n\n" + plyrStr, context)
+                            await send_emb_message_to_channel(0xff0000, STARTER[0].mention + " player must be added to the pickup. Available players are listed in the Channel topic (top of discord)", context)
                             rcap = Bot.user.name
                     else:  # timeout
-                        await send_emb_message_to_channel_red(STARTER[0].mention + " pick the red team captain using @playername in your reply. Available players are:\n\n" + plyrStr, context)
+                        await send_emb_message_to_channel_red(STARTER[0].mention + " pick the red team captain using @playername in your reply. Available players are listed in the Channel topic (top of discord)", context)
                 except(IndexError):
                     # keep trying if they did not mention someone
-                    await send_emb_message_to_channel_red(STARTER[0].mention + " pick the red team captain using @playername in your reply. Available players are:\n\n" + plyrStr, context)
+                    await send_emb_message_to_channel_red(STARTER[0].mention + " pick the red team captain using @playername in your reply. Available players are listed in the Channel topic (top of discord)", context)
             if (bcap == rcap):
                 await send_emb_message_to_channel(0xff0000, STARTER[0].mention + " you cannot pick the same captain for both teams", context)
                 return False
@@ -689,7 +688,7 @@ async def pick_captains(caps, context):
                     if p not in BLUE_TEAM:
                         plyrStr += p.mention
                         plyrStr += "\n"
-                await send_emb_message_to_channel_blue( STARTER[0].mention + " pick the players for the blue team using " + cmdprefix + "blue <@playername>, <@playername>, ... , <@playername> in your reply.\n\nAvailable players are:\n\n" + plyrStr + "\n\n**Current players** are: " + '\n'.join([p.mention for p in BLUE_TEAM]), context)
+                await send_emb_message_to_channel_blue( STARTER[0].mention + " pick the players for the blue team using " + cmdprefix + "blue <@playername>, <@playername>, ... , <@playername> in your reply.\n\nAvailable players are listed in the Channel topic (top of discord)\n\n**Current players** are: " + '\n'.join([p.mention for p in BLUE_TEAM]), context)
 
                 # check function for advance filtering
                 def check(msg):
@@ -886,7 +885,7 @@ async def pickup_is_running(context):
 async def red_team_picks(caps, context, playerPool):
     global BLUE_TEAM, RED_TEAM, PLAYERS, server
     playerPicked = False
-    await send_emb_message_to_channel(0x00ff00, caps[1].mention + " type @player to pick. Available players are:\n\n" + '\n'.join([p.mention for p in playerPool]), context)
+    await send_emb_message_to_channel(0x00ff00, caps[1].mention + " type @player to pick. Available players are listed in the Channel topic (top of discord)", context)
 
     while not playerPicked:
         # check for a pick and catch it if they don't mention an available player
@@ -918,8 +917,8 @@ async def remove_everyone_from_pool_role(context):
     # remove from all users in both teams
     for p in BLUE_TEAM:
         await Bot.remove_roles(p, poolRole)
-        for p in RED_TEAM:
-            await Bot.remove_roles(p, poolRole)
+    for p in RED_TEAM:
+        await Bot.remove_roles(p, poolRole)
     # reset presence to nothing
     await Bot.change_presence(game=discord.Game(name=''))
 
@@ -1049,7 +1048,7 @@ async def verify_chosen_map_is_good(context):
 # Add
 @Bot.command(name='add', description="Add yourself to the list of players for the current pickup", brief="Add to the pickup", aliases=['add_me', 'addme', 'join'], pass_context=True)
 async def _add(context):
-    global CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, sizeOfGame, STARTER, VOTE_FOR_MAPS
+    global BLUE_TEAM, caps, CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, RED_TEAM, sizeOfGame, STARTER, VOTE_FOR_MAPS
     if await command_is_in_wrong_channel(context): return  # To avoid cluttering and confusion, the Bot only listens to one channel
     if not await pickup_is_running(context): return  # there must be an active pickup
     # one can only add if:
@@ -1070,6 +1069,8 @@ async def _add(context):
         PLAYERS.append(context.message.author)
         await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " you have been added to the pickup.\nThere are currently " + str(len(PLAYERS)) + "/" + str(sizeOfGame) + " Players in the pickup", context)
         await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+        channel = context.message.channel
+        await channel.edit(topic='Players: ' + str(PLAYERS))
 
     # each time someone adds, we need to check to see if the pickup is full
     if (len(PLAYERS) == sizeOfGame):
@@ -1083,6 +1084,14 @@ async def _add(context):
             STARTER = []
             PICKUP_RUNNING = False
             VOTE_FOR_MAPS = True
+        else:
+            # These need to be reset to avoid duplicate events
+            await remove_everyone_from_pool_role(context)
+            BLUE_TEAM = []
+            CHOSEN_MAP = []
+            RED_TEAM = []
+            caps = []
+
 
 
 # Add Alias
@@ -1596,7 +1605,7 @@ async def _eight_ball(context):
 # Radicaldad
 @Bot.command(name='radicaldad', description="", brief="Not for you", pass_context=True)
 async def _radicaldad(context):
-    global CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, sizeOfGame, STARTER, vipPlayerID, VOTE_FOR_MAPS
+    global BLUE_TEAM, caps, CHOSEN_MAP, MAP_PICKS, PICKUP_RUNNING, PLAYERS, poolRole, RED_TEAM, sizeOfGame, STARTER, vipPlayerID, VOTE_FOR_MAPS
     # same as add but with the restriction on ID
     if context.message.author.id == vipPlayerID:
         if not await pickup_is_running(context): return  # there must be an active pickup
@@ -1615,6 +1624,8 @@ async def _radicaldad(context):
             PLAYERS.append(context.message.author)
             await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " you have been added to the pickup.\nThere are currently " + str(len(PLAYERS)) + "/" + str(sizeOfGame) + " Players in the pickup", context)
             await Bot.change_presence(game=discord.Game(name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
+            channel = context.message.channel
+            await channel.edit(topic='Players: ' + str(PLAYERS))
 
         # each time someone adds, we need to check to see if the pickup is full
         if (len(PLAYERS) == sizeOfGame):
@@ -1628,6 +1639,13 @@ async def _radicaldad(context):
                 STARTER = []
                 PICKUP_RUNNING = False
                 VOTE_FOR_MAPS = True
+            else:
+                # These need to be reset to avoid duplicate events
+                await remove_everyone_from_pool_role(context)
+                BLUE_TEAM = []
+                CHOSEN_MAP = []
+                RED_TEAM = []
+                caps = []
 
 
 # Records
@@ -1673,6 +1691,8 @@ async def _remove(context):
             await Bot.change_presence(game=discord.Game( name='Pickup (' + str(len(PLAYERS)) + '/' + str(sizeOfGame) + ') ' + cmdprefix + 'add'))
         else:
             await send_emb_message_to_channel(0x00ff00, context.message.author.mention + " no worries, you never even added", context)
+    channel = context.message.channel
+    await channel.edit(topic='Players: ' + str(PLAYERS))
 
 
 # Remove Nomination
@@ -1799,7 +1819,7 @@ async def _teams(context):
         await send_emb_message_to_channel(0x00ff00, "The pickup is empty right now. " + cmdprefix + "add to join", context)
     elif (len(PLAYERS) > 0):
         plyrStr = '\n'.join([p.mention for p in PLAYERS])
-        await send_emb_message_to_channel(0x00ff00, "Players:\n" + plyrStr, context)
+        await send_emb_message_to_user(0x00ff00, "The current players are always listed in the Channel topic (top of discord)\n\n" + plyrStr, context)
 
 
 # Transfer
