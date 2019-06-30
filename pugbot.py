@@ -403,6 +403,7 @@ async def go_go_gadget_pickup(context):
     caps = []
     RED_TEAM = []
     playerPool = []
+    playerPoolStr = ""
     counter = 0
     countdown = time.time()
     elapsedtime = time.time() - countdown
@@ -623,6 +624,7 @@ async def go_go_gadget_pickup(context):
             for i in range(0, sizeOfTeams):
                 RED_TEAM.append(PLAYERS[i])
                 BLUE_TEAM.append(PLAYERS[i + sizeOfTeams])
+                playerPoolStr = ",".join([p.name for p in PLAYERS])
         else:
             BLUE_TEAM.append(caps[0])
             RED_TEAM.append(caps[1])
@@ -631,6 +633,7 @@ async def go_go_gadget_pickup(context):
             for p in PLAYERS:
                 if p not in caps:
                     playerPool.append(p)
+            playerPoolStr = caps[0].name + "," + caps[1].name + "," + ",".join([p.name for p in playerPool])
 
         # Switch off picking until the teams are all full
         await Bot.change_presence(game=discord.Game(name="Team Selection"))
@@ -714,6 +717,7 @@ async def go_go_gadget_pickup(context):
                     BLUE_TEAM = []
                     playerPool = []
                     RED_TEAM = []
+                    playerPoolStr = ""
                     adminApproves = False
             else:
                 didChoose = False
@@ -754,7 +758,7 @@ async def go_go_gadget_pickup(context):
     await save_last_game_info()
 
     # POST to the information to the website
-    await post_to_website()
+    await post_to_website(playerPoolStr)
 
     # remove the players from the pool
     await remove_everyone_from_pool_role(context)
@@ -1266,19 +1270,18 @@ async def pickup_is_running(context):
         return False
 
 
-async def post_to_website():
-    global BLUE_TEAM, CHOSEN_MAP, RANDOM_TEAMS, RED_TEAM, sizeOfGame, STARTER
-    mode = "pool" if RANDOM_TEAMS else mode = "captains"
-    # build the list of players
-    blue_team = ",".join([p.name for p in BLUE_TEAM])
-    red_team = ",".join([p.name for p in RED_TEAM])
-    players = blue_team + "," + red_team
+async def post_to_website(playerPoolStr):
+    global CHOSEN_MAP, RANDOM_TEAMS, sizeOfGame, STARTER
+    if RANDOM_TEAMS:
+        mode = "pool"
+    else:
+        mode = "captains"
     payload = {
         "1": STARTER[0].name,
         "2": mode,
         "3": CHOSEN_MAP,
         "4": sizeOfGame,
-        "5": players,
+        "5": playerPoolStr,
         "k": websiteKey,
     }
     resp = requests.post(websiteURL, params=payload)
