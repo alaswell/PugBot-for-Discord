@@ -633,7 +633,13 @@ async def go_go_gadget_pickup(context):
             for p in PLAYERS:
                 if p not in caps:
                     playerPool.append(p)
-            playerPoolStr = caps[0].name + "," + caps[1].name + "," + ",".join([p.name for p in playerPool])
+            playerPoolStr = (
+                caps[0].name
+                + ","
+                + caps[1].name
+                + ","
+                + ",".join([p.name for p in playerPool])
+            )
 
         # Switch off picking until the teams are all full
         await Bot.change_presence(game=discord.Game(name="Team Selection"))
