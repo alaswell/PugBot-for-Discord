@@ -624,7 +624,6 @@ async def go_go_gadget_pickup(context):
             for i in range(0, sizeOfTeams):
                 RED_TEAM.append(PLAYERS[i])
                 BLUE_TEAM.append(PLAYERS[i + sizeOfTeams])
-                playerPoolStr = ",".join([p.name for p in PLAYERS])
         else:
             BLUE_TEAM.append(caps[0])
             RED_TEAM.append(caps[1])
@@ -633,13 +632,6 @@ async def go_go_gadget_pickup(context):
             for p in PLAYERS:
                 if p not in caps:
                     playerPool.append(p)
-            playerPoolStr = (
-                caps[0].name
-                + ","
-                + caps[1].name
-                + ","
-                + ",".join([p.name for p in playerPool])
-            )
 
         # Switch off picking until the teams are all full
         await Bot.change_presence(game=discord.Game(name="Team Selection"))
@@ -723,7 +715,6 @@ async def go_go_gadget_pickup(context):
                     BLUE_TEAM = []
                     playerPool = []
                     RED_TEAM = []
-                    playerPoolStr = ""
                     adminApproves = False
             else:
                 didChoose = False
@@ -762,6 +753,12 @@ async def go_go_gadget_pickup(context):
 
     # Save all the information for !last
     await save_last_game_info()
+
+    # Build the list of players for the website
+    for i in range(sizeOfTeams):
+        playerPoolStr += BLUE_TEAM[i].name + ","
+        playerPoolStr += RED_TEAM[i].name + ","
+    playerPoolStr = playerPoolStr[:-1]  # delete the last comma
 
     # POST to the information to the website
     await post_to_website(playerPoolStr)
@@ -1281,7 +1278,7 @@ async def post_to_website(playerPoolStr):
     if RANDOM_TEAMS:
         mode = "pool"
     else:
-        mode = "captains"
+        mode = "team"
     payload = {
         "1": STARTER[0].name,
         "2": mode,
