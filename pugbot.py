@@ -1957,7 +1957,7 @@ async def _banned(context):
             member = server.get_member(banned["userid"])
             time = datetime.datetime.fromtimestamp(banned["origin"])
             emb.add_field(
-                name=str(member.name) + " at " + time.strftime('%H:%M:%S %m-%d-%Y'),
+                name=str(member.name) + " at " + time.strftime("%H:%M:%S %m-%d-%Y"),
                 value=str(banned["length"]) + " - " + str(banned["reason"]),
                 inline=False,
             )
