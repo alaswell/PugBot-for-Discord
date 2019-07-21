@@ -10,6 +10,7 @@ from datetime import timedelta
 import discord
 from discord import Game
 from discord.ext.commands import Bot
+from os import system
 import pymongo
 from pymongo.collection import ReturnDocument
 import random
@@ -153,60 +154,6 @@ async def blue_team_picks(caps, context, playerPool):
             pass
 
 
-async def check_bans():
-    global bannedChannelID, accessRole, database, dbclient, server, timeoutRole
-
-    while not Bot.is_closed:
-        try:
-            # reconnect to MongoDB
-            await set_database()
-            collection = database["banned"]
-            cursor = collection.find({})
-            for document in cursor:
-                origin = document.get("origin")
-                length = document.get("length")
-                elapsed_time = time.time() - origin
-                if elapsed_time >= length:
-                    # timeout has elapsed, give user back access
-                    member = server.get_member(document.get("userid"))
-                    try:
-                        await Bot.remove_roles(member, timeoutRole)
-                        await asyncio.sleep(2)
-                        await Bot.add_roles(member, accessRole)
-                    except Exception:
-                        pass
-
-                    # delete the ban from the MongoDB
-                    collection.delete_one(document)
-                    # notify the admins
-                    emb = discord.Embed(
-                        description="The ban for user "
-                        + member.mention
-                        + " has expired. They have been granted access to the channel once again",
-                        colour=0x00FF00,
-                    )
-                    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-                    await Bot.send_message(
-                        server.get_channel(bannedChannelID), embed=emb
-                    )
-                    # notify the user
-                    emb = discord.Embed(
-                        description="Your ban time has expired. You have been granted access to the bot and the channel once again",
-                        colour=0x00FF00,
-                    )
-                    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-                    await Bot.send_message(member, embed=emb)
-                    print(
-                        "LOG MESSAGE: The ban for Player: "
-                        + str(member)
-                        + " has been removed by the bot"
-                    )
-            dbclient.close()
-            await asyncio.sleep(600)  # 10 minutes
-        except:
-            pass  # we can ignore an error when checking this once in a while
-
-
 # check that the admin who started the game is still here
 async def check_for_afk_admin():
     global adminRoleID, cmdprefix, STARTER
@@ -340,15 +287,19 @@ async def command_is_in_wrong_channel(context):
         if (
             context.message.channel.id != adminChannelID
             and context.message.channel.id != bannedChannelID
+            and context.message.channel.id != singleChannelID
         ):
-            # Bot only listens to the admin channel or the banned channel when banning or unbanning players
-            await send_emb_message_to_channel(
+            # Bot will only listen to the above channels when banning or unbanning players
+            await send_emb_message_to_user(
                 0xFF0000,
-                context.message.author.mention
-                + " you cannot use this command in this channel. Retry inside the "
+                "I'm sorry, you cannot use that command in the "
+                + context.message.channel.name
+                + " channel. Retry inside the "
                 + server.get_channel(adminChannelID).name
-                + " or the "
+                + ", "
                 + server.get_channel(bannedChannelID).name
+                + ", or the "
+                + server.get_channel(singleChannelID).name
                 + " channel",
                 context,
             )
@@ -1830,7 +1781,7 @@ async def _admin(context):
     name="ban",
     description="Admin only command that bans a user from the channel for the period specified\n\n"
     + cmdprefix
-    + "ban @user length hours|days|months (pick one) Reason for the ban",
+    + "ban @user length hours|days|weeks|months (pick one) Reason for the ban",
     brief="Ban a player",
     aliases=["ban_player", "banplayer", "timeout"],
     pass_context=True,
@@ -1850,23 +1801,23 @@ async def _ban(context):
                     origin = time.time()
                     resolution = message[3]
 
-                    if resolution == "hours":
-                        length = int(length) * 3600
-                    elif resolution == "days":
-                        length = int(length) * 86400
-                    elif resolution == "months":
-                        length = int(length) * 2629740
-                    else:
+                    if (
+                        resolution != "hours"
+                        and resolution != "days"
+                        and resolution != "weeks"
+                        and resolution != "months"
+                    ):
                         await send_emb_message_to_channel(
                             0x00FF00,
                             str(resolution)
                             + " is not a valid resolution, it must be either: hours, days, or months. Please try again\n\n"
                             + cmdprefix
-                            + "ban @user length hours|days|months (pick one) Reason for the ban",
+                            + "ban @user length hours|days|weeks|months (pick one) Reason for the ban",
                             context,
                         )
                         return
 
+                    duration = length + " " + resolution
                     reason = " ".join(message[4:])
 
                     # remove access to the channel
@@ -1888,14 +1839,25 @@ async def _ban(context):
                         except Exception:
                             pass
 
-                    # Add this ban to the MongoDB
-                    query = database.banned.insert(
+                    # delete any existing ban from the MongoDB
+                    database.banned.delete_one({"userid": banned.id})
+
+                    # Add the new ban to the MongoDB
+                    database.banned.insert(
                         {
                             "userid": banned.id,
-                            "length": length,
+                            "length": duration,
                             "origin": origin,
                             "reason": reason,
                         }
+                    )
+
+                    # Schedule a job to !unban after duration
+                    system(
+                        'echo "python3 /home/ubuntu/PugBot-for-Discord/unban.py '
+                        + banned.id
+                        + '" | at now + '
+                        + duration
                     )
 
                     print(
@@ -1939,7 +1901,7 @@ async def _ban(context):
                         + str(message[2])
                         + '" is not a valid length, it must be a number. Please try again\n\n'
                         + cmdprefix
-                        + "ban @user length hours|days|months (pick one) Reason for the ban",
+                        + "ban @user length hours|days|weeks|months (pick one) Reason for the ban",
                         context,
                     )
             except (IndexError):
@@ -1947,7 +1909,7 @@ async def _ban(context):
                     0x00FF00,
                     "You must @mention the user, please try again\n\n"
                     + cmdprefix
-                    + "ban @user length hours|days|months (pick one) Reason for the ban",
+                    + "ban @user length hours|days|weeks|months (pick one) Reason for the ban",
                     context,
                 )
         else:
@@ -1956,7 +1918,7 @@ async def _ban(context):
                 context.message.author.mention
                 + "\n\nThat is not how you use this command, use:\n\n"
                 + cmdprefix
-                + "ban @user length hours|days|months (pick one) Reason for the ban\n\nPlease try again",
+                + "ban @user length hours|days|weeks|months (pick one) Reason for the ban\n\nPlease try again",
                 context,
             )
     else:
@@ -3286,7 +3248,7 @@ async def _transfer(context):
 # Unban
 @Bot.command(
     name="unban",
-    description="Remove a ban for the specifed user from the database and grant them access once more",
+    description="Remove a ban for the specified user from the database and grant them access once more",
     brief="Unban a player",
     aliases=["del_ban", "delban", "un_ban", "remove_ban", "removeban"],
     pass_context=True,
@@ -3295,68 +3257,11 @@ async def _unban(context):
     global bannedChannelID, database, dbclient
     if await command_is_in_wrong_channel(context):
         return  # To avoid cluttering and confusion, the Bot only listens to one channel
+    message = context.message.content.split()
     # admin command
     if await user_has_access(context.message.author):
         try:
             banned = context.message.mentions[0]
-            message = context.message.content.split()
-            if len(message) >= 3:
-                await set_database()
-                reason = " ".join(message[2:])
-
-                # delete the ban from the MongoDB
-                database.banned.delete_one({"userid": banned.id})
-
-                # give user back access
-                member = server.get_member(banned.id)
-                try:
-                    await Bot.remove_roles(member, timeoutRole)
-                    await asyncio.sleep(2)
-                    await Bot.add_roles(member, accessRole)
-                except Exception:
-                    pass
-
-                # notify the admins
-                emb = discord.Embed(
-                    description="The ban for user "
-                    + member.mention
-                    + " has been removed by "
-                    + context.message.author.mention
-                    + " (Admin)\nReason given: "
-                    + reason
-                    + "\n\nNOTE: This action has been logged",
-                    colour=0x00FF00,
-                )
-                emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-                await Bot.send_message(server.get_channel(bannedChannelID), embed=emb)
-                # notify the user
-                emb = discord.Embed(
-                    description="Your ban has been removed by "
-                    + context.message.author.mention
-                    + " (Admin)\nReason given: "
-                    + reason
-                    + "\n\nNOTE: This action has been logged",
-                    colour=0x00FF00,
-                )
-                emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-                await Bot.send_message(member, embed=emb)
-                print(
-                    "LOG MESSAGE: The ban for Player: "
-                    + str(member)
-                    + " has been removed by "
-                    + context.message.author.name
-                    + " (Admin) for reason: "
-                    + reason
-                )
-                dbclient.close()
-            else:
-                await send_emb_message_to_channel(
-                    0xFF0000,
-                    "You need to provide a reason for why you are removing this ban early\n\n"
-                    + cmdprefix
-                    + "unban @user the reason why you are removing this ban early",
-                    context,
-                )
         except (IndexError):
             await send_emb_message_to_channel(
                 0xFF0000,
@@ -3365,10 +3270,70 @@ async def _unban(context):
                 + "unban @user the reason why you are removing this ban",
                 context,
             )
+            return
     else:
         await send_emb_message_to_channel(
             0xFF0000,
             context.message.author.mention + " you do not have access to this command",
+            context,
+        )
+        return
+    if len(message) >= 3:
+        await set_database()
+        reason = " ".join(message[2:])
+
+        # delete the ban from the MongoDB
+        database.banned.delete_one({"userid": banned.id})
+
+        # give user back access
+        member = server.get_member(banned.id)
+        try:
+            await Bot.remove_roles(member, timeoutRole)
+            await asyncio.sleep(2)
+            await Bot.add_roles(member, accessRole)
+        except Exception:
+            pass
+
+        # notify the admins
+        emb = discord.Embed(
+            description="The ban for user "
+            + member.mention
+            + " has been removed by "
+            + context.message.author.mention
+            + " (Admin)\nReason given: "
+            + reason
+            + "\n\nNOTE: This action has been logged",
+            colour=0x00FF00,
+        )
+        emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
+        await Bot.send_message(server.get_channel(bannedChannelID), embed=emb)
+        await Bot.send_message(server.get_channel(adminChannelID), embed=emb)
+        # notify the user
+        emb = discord.Embed(
+            description="Your ban has been removed by "
+            + context.message.author.mention
+            + " (Admin)\nReason given: "
+            + reason
+            + "\n\nNOTE: This action has been logged",
+            colour=0x00FF00,
+        )
+        emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
+        await Bot.send_message(member, embed=emb)
+        print(
+            "LOG MESSAGE: The ban for Player: "
+            + str(member)
+            + " has been removed by "
+            + context.message.author.name
+            + " (Admin) for reason: "
+            + reason
+        )
+        dbclient.close()
+    else:
+        await send_emb_message_to_channel(
+            0xFF0000,
+            "You need to provide a reason for why you are removing this ban early\n\n"
+            + cmdprefix
+            + "unban @user the reason why you are removing this ban early",
             context,
         )
 
@@ -3416,12 +3381,6 @@ async def on_message(message):
         if await author_is_in_timeout(message):
             return
     except AttributeError:
-        print(
-            "ERROR MESSAGE: Something went wrong at "
-            + time.time()
-            + "\nDue to author_is_in_timeout => AttributeError: 'NoneType' object has no attribute 'roles'\n\n"
-            + context.message.author.mention
-        )
         return
     message.content = message.content.lower()
     await Bot.process_commands(message)
@@ -3440,8 +3399,24 @@ async def on_ready():
     accessRole = discord.utils.get(server.roles, id=playerRoleID)
     poolRole = discord.utils.get(server.roles, id=poolRoleID)
     timeoutRole = discord.utils.get(server.roles, id=timeoutRoleID)
-    # loop to check for banned users
-    # Bot.loop.create_task(check_bans())
+
+
+# keep track of any banned users who re-join the server
+@Bot.event
+async def on_member_join(member):
+    # connect to MongoDB
+    await set_database()
+    collection = database["banned"]
+    cursor = collection.find({})
+    for document in cursor:
+        if member.id == document.get("userid"):
+            # remove access to the channel
+            try:
+                await Bot.add_roles(member, timeoutRole)
+                await asyncio.sleep(2)
+                await Bot.remove_roles(member, accessRole)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
 
 
 Bot.run(token)
