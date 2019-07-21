@@ -6,6 +6,7 @@
 import asyncio
 import config
 from collections import OrderedDict
+import datetime
 from datetime import timedelta
 import discord
 from discord import Game
@@ -1927,6 +1928,42 @@ async def _ban(context):
             context.message.author.mention + " you do not have access to this command",
             context,
         )
+
+
+# Banned
+@Bot.command(
+    name="banned",
+    description="List all the bans currently saved in the mongoDB\n\n"
+    + cmdprefix
+    + "banned",
+    brief="List all banned players",
+    aliases=["banned_player", "bannedplayer", "banned_players", "bannedplayers"],
+    pass_context=True,
+)
+async def _banned(context):
+    global database, server
+    await set_database()
+    # return all documents in the banned collection
+    foundmaps = database.banned.find({})
+    # convert to a list so we can index into it
+    bannedUsers = list(foundmaps)
+    # setup the embed and send the message
+    emb = discord.Embed(
+        description="The following players are currently banned:", colour=0xFFA500
+    )
+    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
+    for banned in bannedUsers:
+        try:
+            member = server.get_member(banned["userid"])
+            time = datetime.datetime.fromtimestamp(banned["origin"])
+            emb.add_field(
+                name=str(member.name) + " at " + time.strftime('%H:%M:%S %m-%d-%Y'),
+                value=str(banned["length"]) + " - " + str(banned["reason"]),
+                inline=False,
+            )
+        except Exception:
+            pass  # skip any errors trying to get a user who has left the server
+    await Bot.send_message(context.message.channel, embed=emb)
 
 
 # Bitcoin
