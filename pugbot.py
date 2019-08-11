@@ -283,7 +283,7 @@ async def command_is_in_wrong_channel(context):
             return True
         else:
             return False
-    elif context.command.name == "ban" or context.command.name == "unban":
+    elif context.command.name == "ban" or context.command.name == "permaban" or context.command.name == "unban":
         # Admin channel commands
         if (
             context.message.channel.id != adminChannelID
@@ -1782,7 +1782,7 @@ async def _admin(context):
     name="ban",
     description="Admin only command that bans a user from the channel for the period specified\n\n"
     + cmdprefix
-    + "ban @user length hours|days|weeks|months (pick one) Reason for the ban",
+    + "ban @user length hour(s)|day(s)|week(s)|month(s)|year(s) (pick one) Reason for the ban",
     brief="Ban a player",
     aliases=["ban_player", "banplayer", "timeout"],
     pass_context=True,
@@ -1802,6 +1802,20 @@ async def _ban(context):
                     origin = time.time()
                     resolution = message[3]
 
+                    # convert to plural form if necessary
+                    if resolution == "hour":
+                        resolution = "hours"
+                    elif resolution == "day":
+                        resolution = "days"
+                    elif resolution == "week":
+                        resolution = "weeks"
+                    elif resolution == "month":
+                        resolution = "months"
+                    elif resolution == "year" or resolution == "years":
+                        # years are converted to months
+                        resolution = "months"
+                        length *= 12
+
                     if (
                         resolution != "hours"
                         and resolution != "days"
@@ -1811,9 +1825,9 @@ async def _ban(context):
                         await send_emb_message_to_channel(
                             0x00FF00,
                             str(resolution)
-                            + " is not a valid resolution, it must be either: hours, days, or months. Please try again\n\n"
+                            + " is not a valid resolution, it must be either: hour(s), day(s), week(s), month(s), or year(s). Please try again\n\n"
                             + cmdprefix
-                            + "ban @user length hours|days|weeks|months (pick one) Reason for the ban",
+                            + "ban @user length hour(s)|day(s)|week(s)|month(s)|year(s) (pick one) Reason for the ban",
                             context,
                         )
                         return
@@ -1902,7 +1916,7 @@ async def _ban(context):
                         + str(message[2])
                         + '" is not a valid length, it must be a number. Please try again\n\n'
                         + cmdprefix
-                        + "ban @user length hours|days|weeks|months (pick one) Reason for the ban",
+                        + "ban @user length hour(s)|day(s)|week(s)|month(s)|year(s) (pick one) Reason for the ban",
                         context,
                     )
             except (IndexError):
@@ -1910,7 +1924,7 @@ async def _ban(context):
                     0x00FF00,
                     "You must @mention the user, please try again\n\n"
                     + cmdprefix
-                    + "ban @user length hours|days|weeks|months (pick one) Reason for the ban",
+                    + "ban @user length hour(s)|day(s)|week(s)|month(s)|year(s) (pick one) Reason for the ban",
                     context,
                 )
         else:
@@ -1919,7 +1933,7 @@ async def _ban(context):
                 context.message.author.mention
                 + "\n\nThat is not how you use this command, use:\n\n"
                 + cmdprefix
-                + "ban @user length hours|days|weeks|months (pick one) Reason for the ban\n\nPlease try again",
+                + "ban @user length hour(s)|day(s)|week(s)|month(s)|year(s) (pick one) Reason for the ban\n\nPlease try again",
                 context,
             )
     else:
@@ -2493,6 +2507,113 @@ async def _nominate(context):
                 + " you cannot use this command, you must be added to the pickup to nominate maps",
                 context,
             )
+
+
+# Perma-Ban
+@Bot.command(
+    name="permaban",
+    description="Admin only command that bans a user from the channel FOREVER\n\n"
+    + cmdprefix
+    + "permaban @user Reason for the ban",
+    brief="Permanently ban a player",
+    aliases=["perma_ban", "permaban_player", "permabanplayer"],
+    pass_context=True,
+)
+async def _permaban(context):
+    global database, accessRole, MAP_PICKS, PLAYERS, poolRole, timeoutRole
+    if await command_is_in_wrong_channel(context):
+        return  # To avoid cluttering and confusion, the Bot only listens to one channel
+    # admin command
+    if await user_has_access(context.message.author):
+        message = context.message.content.split()
+        if len(message) > 2:
+            try:
+                banned = context.message.mentions[0]
+                origin = time.time()
+                reason = " ".join(message[2:])
+
+                # remove access to the channel
+                try:
+                    await Bot.add_roles(banned, timeoutRole)
+                    await asyncio.sleep(2)
+                    await Bot.remove_roles(banned, accessRole)
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+
+                # remove them if they are added
+                if banned in PLAYERS:
+                    PLAYERS.remove(banned)  # remove from players list
+                    MAP_PICKS.pop(
+                        banned, None
+                    )  # remove this players nomination if they had one
+                    try:
+                        await Bot.remove_roles(banned, poolRole)
+                    except Exception:
+                        pass
+
+                # delete any existing ban from the MongoDB
+                database.banned.delete_one({"userid": banned.id})
+
+                # Add the new ban to the MongoDB
+                database.banned.insert(
+                    {
+                        "userid": banned.id,
+                        "length": 9999,
+                        "origin": origin,
+                        "reason": reason,
+                    }
+                )
+
+                print(
+                    "LOG MESSAGE: "
+                    + context.message.author.name
+                    + " PERMA-banned Player: "
+                    + str(banned)
+                    + " - At time "
+                    + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                    + "\nReason given: "
+                    + reason
+                )
+                await send_emb_message_to_channel(
+                    0x00FF00,
+                    banned.mention
+                    + " has been permanently banned by "
+                    + context.message.author.mention
+                    + " (Admin)\n\nNOTE: This action has been logged",
+                    context,
+                )
+                # notify the user
+                emb = discord.Embed(
+                    description="You have been permanently banned from this channel by an Admin"
+                    + "\nReason: "
+                    + reason,
+                    colour=0x00FF00,
+                )
+                emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
+                await Bot.send_message(banned, embed=emb)
+            except IndexError:
+                await send_emb_message_to_channel(
+                    0x00FF00,
+                    "You must @mention the user, please try again\n\n"
+                    + cmdprefix
+                    + "permaban @user Reason for the ban",
+                    context,
+                )
+        else:
+            await send_emb_message_to_channel(
+                0xFF0000,
+                context.message.author.mention
+                + "\n\nThat is not how you use this command, use:\n\n"
+                + cmdprefix
+                + "permaban @user Reason for the ban\n\nPlease try again",
+                context,
+            )
+    else:
+        await send_emb_message_to_channel(
+            0xFF0000,
+            context.message.author.mention + " you do not have access to this command",
+            context,
+        )
 
 
 # Pickup
