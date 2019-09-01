@@ -3577,4 +3577,27 @@ async def on_member_join(member):
                 pass
 
 
-Bot.run(token)
+while True:
+    try:
+        client.loop.run_until_complete(Bot.start(token))
+    except Exception:
+        client.loop.run_until_complete(Bot.logout())
+        for task in asyncio.Task.all_tasks(loop=client.loop):
+            if task.done():
+                task.exception()
+                continue
+            task.cancel()
+            try:
+                client.loop.run_until_complete(asyncio.wait_for(task, 5, loop=client.loop))
+                task.exception()
+            except asyncio.InvalidStateError:
+                pass
+            except asyncio.TimeoutError:
+                pass
+            except asyncio.CancelledError:
+                pass
+        print(
+            "LOGGER: Bot restarting - At time "
+            + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        )
+        client = discord.Client(loop=client.loop)
