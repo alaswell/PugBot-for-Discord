@@ -976,7 +976,7 @@ async def pick_captains(caps, context):
                             0xFF0000,
                             STARTER[0].mention
                             + " this team is not full, you will need to pick "
-                            + (sizeOfTeams - len(BLUE_TEAM))
+                            + str((sizeOfTeams - len(BLUE_TEAM)))
                             + " more players",
                             context,
                         )
@@ -1797,7 +1797,7 @@ async def _ban(context):
         if len(message) > 4:
             try:
                 banned = context.message.mentions[0]
-                if re.match("^[0-9]*$", message[2]):
+                if re.match("^[1-9]+[0-9]*$", message[2]):
                     length = message[2]
                     origin = time.time()
                     resolution = message[3]
@@ -1858,14 +1858,24 @@ async def _ban(context):
                     database.banned.delete_one({"userid": banned.id})
 
                     # Add the new ban to the MongoDB
-                    database.banned.insert(
-                        {
-                            "userid": banned.id,
-                            "length": duration,
-                            "origin": origin,
-                            "reason": reason,
-                        }
-                    )
+                    if message[2] == 1:
+                        database.banned.insert(
+                            {
+                                "userid": banned.id,
+                                "length": duration[:-1],
+                                "origin": origin,
+                                "reason": reason,
+                            }
+                        )
+                    else:
+                        database.banned.insert(
+                            {
+                                "userid": banned.id,
+                                "length": duration,
+                                "origin": origin,
+                                "reason": reason,
+                            }
+                        )
 
                     # Schedule a job to !unban after duration
                     system(
@@ -3176,7 +3186,7 @@ async def _setmode(context):
     name="setserver",
     description="Change the server the pickup will be played on (Game Starter Only)",
     brief="Change the server information",
-    aliases=["changeserver", "change_server", "server", "set_server"],
+    aliases=["changeserver", "change_server", "set_server"],
     pass_context=True,
 )
 async def _setserver(context):
@@ -3521,7 +3531,7 @@ async def _unsubscribe(context):
     else:  # role is None - this is typically caused by playerRoleID not matching any roles in the server
         print(
             "ERROR MESSAGE: Something went wrong at "
-            + time.time()
+            + str(time.time())
             + "\nDue to unsubscribe => role is None\n\nCheck playerRoleID is in server role id"
         )
         await send_emb_message_to_user(
