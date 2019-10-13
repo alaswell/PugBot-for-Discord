@@ -976,7 +976,7 @@ async def pick_captains(caps, context):
                             0xFF0000,
                             STARTER[0].mention
                             + " this team is not full, you will need to pick "
-                            + str((sizeOfTeams - len(BLUE_TEAM)))
+                            + str(sizeOfTeams - len(BLUE_TEAM))
                             + " more players",
                             context,
                         )
