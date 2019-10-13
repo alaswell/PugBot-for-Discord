@@ -24,6 +24,9 @@ pickup = {	'blueteam': ['player0','player1','player2','player3'],
 			'redteam': ['player4','player5','player6','player7'],
 			'time': time }
 
+# pickups is the collection (read: table) and pickup is the document (read: row)
+id = db.pickups.insert_one(pickup)
+
 # verify we have done this correctly
 last = db.pickups.find_one({})
 
