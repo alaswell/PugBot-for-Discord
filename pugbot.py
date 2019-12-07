@@ -1309,16 +1309,24 @@ async def save_last_game_info():
     [LAST_RED_TEAM.append(p.name) for p in RED_TEAM]
     LAST_TIME = time.time()
 
-    # modify the MongoDB document to contain the most recent pickup information
-    updated = database.pickups.update_one(
+    # modify the MongoDB document's most recent pickup
+    database.pickups.update_one(
         {"last": True},
         {
             "$set": {
-                "blueteam": LAST_BLUE_TEAM,
-                "redteam": LAST_RED_TEAM,
-                "map": LAST_MAP,
-                "time": LAST_TIME,
+                "last": False,
             }
+        },
+    )
+
+    # add new pickup information
+    database.pickups.insert_one(
+        {
+            "blueteam": LAST_BLUE_TEAM,
+            "last": True,
+            "map": LAST_MAP,
+            "redteam": LAST_RED_TEAM,
+            "time": LAST_TIME,
         },
     )
 
@@ -2007,7 +2015,7 @@ async def _bitcoin():
 # Changelevel
 @Bot.command(
     name="changelevel",
-    description="Change the map in the server using the RCON commange changelevel",
+    description="Change the map in the server using the RCON command changelevel",
     brief="Change the map in serever",
     aliases=[
         "changemap",
@@ -3254,7 +3262,7 @@ async def _setserver(context):
                     + cmdprefix
                     + "setserver name serverAlias\n"
                     + cmdprefix
-                    + "server serverID "
+                    + "setserver serverID "
                     + serverPattern
                     + "\n\nPlease try again",
                     context,

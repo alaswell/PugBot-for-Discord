@@ -43,7 +43,7 @@ vipPlayerID = '123456789987654321'          # ID of the VIP player who gets his/
 server_address = ("255.255.255.001", 27015)	
 rconPW = 'RCON PASSWORD HERE'
 serverID = '255.255.255.001:27015'
-serverIDRegEx = '^[0-9]{3}.[0-9]{3}.[0-9]{3}.[0-9]{3}:27015$'   # string regex reprensation of the server pattern
+serverIDRegEx = '^[0-9]{3}.[0-9]{3}.[0-9]{3}.[0-9]{3}:27015$'   # string regex representation of the server pattern
 serverPattern = '###.###.###.###:27015'
 serverPW = 'SEVER PASSWORD HERE'
 
