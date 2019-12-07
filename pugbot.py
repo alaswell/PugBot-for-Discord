@@ -283,7 +283,11 @@ async def command_is_in_wrong_channel(context):
             return True
         else:
             return False
-    elif context.command.name == "ban" or context.command.name == "permaban" or context.command.name == "unban":
+    elif (
+        context.command.name == "ban"
+        or context.command.name == "permaban"
+        or context.command.name == "unban"
+    ):
         # Admin channel commands
         if (
             context.message.channel.id != adminChannelID
@@ -1284,14 +1288,7 @@ async def save_last_game_info():
     LAST_TIME = time.time()
 
     # modify the MongoDB document's most recent pickup
-    database.pickups.update_one(
-        {"last": True},
-        {
-            "$set": {
-                "last": False,
-            }
-        },
-    )
+    database.pickups.update_one({"last": True}, {"$set": {"last": False}})
 
     # add new pickup information
     database.pickups.insert_one(
@@ -1301,7 +1298,7 @@ async def save_last_game_info():
             "map": LAST_MAP,
             "redteam": LAST_RED_TEAM,
             "time": LAST_TIME,
-        },
+        }
     )
 
 
@@ -3580,7 +3577,9 @@ while True:
                 continue
             task.cancel()
             try:
-                client.loop.run_until_complete(asyncio.wait_for(task, 5, loop=client.loop))
+                client.loop.run_until_complete(
+                    asyncio.wait_for(task, 5, loop=client.loop)
+                )
                 task.exception()
             except asyncio.InvalidStateError:
                 pass
