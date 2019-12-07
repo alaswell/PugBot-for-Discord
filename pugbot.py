@@ -323,8 +323,6 @@ async def command_is_in_wrong_channel(context):
 
 async def count_votes_message_channel(tdelta, keys, context, votelist, votetotals):
     global sizeOfMapPool
-    values = []
-    totals = {}
     tmpstr = ""
     # reset totals
     votetotals = []
