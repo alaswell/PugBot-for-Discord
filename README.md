@@ -4,11 +4,15 @@ PugBot for discord is a bot for managing pickup games. This version has been upd
 
 ## Installing
 
-- Create a mongoDB to hold the last pickup and server + alias information. If you are unsure how to do this, a quick start tutorial can be found at the link provided below.
-- Setup the mongoDB by running `python3 ./mongodb.py` on linux or `python mongodb.py` on windows
-- Rename `config.py.example` to `config.py`
-- Edit config.py to your liking
-- Run the bot with `python3 ./pugbot.py` on linux or `python pugbot.py` on windows
+- I recommended that you run the bot on an aws EC2 or similar linux box 
+  - Instructions for getting started can be found here https://aws.amazon.com/ec2/
+- Once you have a linux box ready:
+  - Create a mongoDB to hold the last pickup and server + alias information. If you are unsure how to do this, a quick start tutorial can be found at the link provided below.
+  - Setup the mongoDB by running `python3 ./mongodb.py`
+    - You will need to modify this file to match your game configuration
+  - Rename `config.py.example` to `config.py`
+    - Edit config.py to match your game configuration
+  - Run the bot with the provided script `./runbot.sh`
 
 ## Requirements
 
