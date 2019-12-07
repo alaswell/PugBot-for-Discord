@@ -727,46 +727,22 @@ async def list_all_the_maps(msg):
     maps = list(foundmaps)
 
     # with the aliases, this message gets big quickly so we
-    # need to chunk up the maplist into sections to accomidate
-
-    ## Part I   ##
+    # need to chunk up the maplist into sections to accommodate
     emb = discord.Embed(
         description="Currently, you may nominate any of the following maps:",
         colour=0xFFA500,
     )
     emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-    for map in maps[:20]:
+
+    # print the maps in groups of 20
+    iCount = 0
+    for map in maps:
+        if iCount % 20 == 0:
+            await Bot.send_message(msg.author, embed=emb)
+            emb = discord.Embed(description="", colour=0xFFA500)
+            emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
         emb.add_field(name=str(map["name"]), value=str(map["aliases"]), inline=False)
-    await Bot.send_message(msg.author, embed=emb)
-    ## Part II  ##
-    emb = discord.Embed(description="", colour=0xFFA500)
-    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-    for map in maps[20:40]:
-        emb.add_field(name=str(map["name"]), value=str(map["aliases"]), inline=False)
-    await Bot.send_message(msg.author, embed=emb)
-    ## Part III ##
-    emb = discord.Embed(description="", colour=0xFFA500)
-    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-    for map in maps[40:60]:
-        emb.add_field(name=str(map["name"]), value=str(map["aliases"]), inline=False)
-    await Bot.send_message(msg.author, embed=emb)
-    ## Part IV  ##
-    emb = discord.Embed(description="", colour=0xFFA500)
-    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-    for map in maps[60:80]:
-        emb.add_field(name=str(map["name"]), value=str(map["aliases"]), inline=False)
-    await Bot.send_message(msg.author, embed=emb)
-    ## Part V  ##
-    emb = discord.Embed(description="", colour=0xFFA500)
-    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-    for map in maps[80:100]:
-        emb.add_field(name=str(map["name"]), value=str(map["aliases"]), inline=False)
-    await Bot.send_message(msg.author, embed=emb)
-    ## Part VI ##
-    emb = discord.Embed(description="", colour=0xFFA500)
-    emb.set_author(name=Bot.user.name, icon_url=Bot.user.avatar_url)
-    for map in maps[100:]:
-        emb.add_field(name=str(map["name"]), value=str(map["aliases"]), inline=False)
+        iCount += 1
     await Bot.send_message(msg.author, embed=emb)
 
 
