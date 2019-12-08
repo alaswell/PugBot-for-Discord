@@ -2,6 +2,7 @@
 
 echo "Initiating run bot script"
 
+cd ~/PugBot-for-Discord
 if pgrep -f 'pugbot.py'
 then
 	echo "    PugBot is currently running"
