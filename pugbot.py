@@ -18,6 +18,7 @@ import random
 from random import choice, shuffle
 import re
 import requests
+import subprocess
 import time
 import valve.rcon
 
@@ -34,6 +35,7 @@ durationOfCheckin = config.durationOfCheckin
 durationOfMapVote = config.durationOfMapVote
 durationOfReadyUp = config.durationOfReadyUp
 durationOfVeto = config.durationOfVeto
+numRestarts = 0
 playerRoleID = config.playerRoleID
 poolRoleID = config.poolRoleID
 quotes = config.quotes
@@ -3567,9 +3569,12 @@ async def on_member_join(member):
 
 
 while True:
+    if numRestarts >= 4:
+        subprocess.call(["../runBot.sh"])
     try:
         client.loop.run_until_complete(Bot.start(token))
     except Exception:
+        numRestarts += 1
         client.loop.run_until_complete(Bot.logout())
         for task in asyncio.Task.all_tasks(loop=client.loop):
             if task.done():
@@ -3587,8 +3592,8 @@ while True:
                 pass
             except asyncio.CancelledError:
                 pass
-        print(
-            "LOGGER: Bot restarting - At time "
-            + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-        )
-        client = discord.Client(loop=client.loop)
+            print(
+                "LOGGER: Bot restarting - At time "
+                + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            )
+            client = discord.Client(loop=client.loop)

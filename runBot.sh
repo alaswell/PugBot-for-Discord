@@ -14,7 +14,16 @@ fi
 
 echo "    Reading and incrementing the debug counter"
 typeset -i number_of_restarts=$(head -n 1 pugbot.out.log)
-number_of_restarts=$((number_of_restarts + 1))
+if ((number_of_restarts > 4))
+then
+	echo "    Bot has restarted too many times"
+	echo "    Rotating the log directory to avoid capacity limits"
+	sudo bash -c "rm -f /home/ubuntu/PugBot-for-Discord/logs/pugbot.out*"
+	sudo bash -c "rm -f /home/ubuntu/PugBot-for-Discord/logs/pugbot.err*"
+	number_of_restarts=0
+else
+    number_of_restarts=$((number_of_restarts + 1))
+fi
 
 echo "    Timestamping and saving the old log files"
 now=$(date +"%m%d%Y.%H%M%S")
